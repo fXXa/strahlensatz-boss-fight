@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Strahlensatz Boss-Fight</title>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#1a1a2e;--bg2:#16213e;--accent:#e94560;--heal:#4ecca3;
+  --text:#eee;--boss:#7b2d8e;--gold:#f0c040;--dim:#888;
+}
+html,body{height:100%;overflow:hidden;font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text)}
+button{font-family:inherit;cursor:pointer;border:none;outline:none;-webkit-tap-highlight-color:transparent}
+input{font-family:inherit}
+
+/* --- Screens --- */
+.screen{display:none;width:100%;height:100%;flex-direction:column;align-items:center;justify-content:center;padding:1rem}
+.screen.active{display:flex}
+
+/* --- Lobby --- */
+#lobby{gap:1.5rem;text-align:center}
+#lobby h1{font-size:clamp(1.6rem,5vw,3rem);color:var(--gold)}
+#lobby .subtitle{color:var(--dim);font-size:1rem}
+.room-display{background:var(--bg2);border:3px solid var(--gold);border-radius:16px;padding:1.5rem 2.5rem;font-size:clamp(2.5rem,8vw,5rem);font-weight:900;letter-spacing:.3em;color:var(--gold);text-shadow:0 0 20px rgba(240,192,64,.4)}
+.room-display small{display:block;font-size:.9rem;letter-spacing:normal;color:var(--dim);font-weight:400;margin-bottom:.5rem}
+#player-count{font-size:1.2rem;color:var(--heal)}
+.btn{padding:.8rem 2rem;border-radius:12px;font-size:1.1rem;font-weight:700;transition:transform .1s,box-shadow .15s}
+.btn:active{transform:scale(.95)}
+.btn-primary{background:var(--accent);color:#fff;box-shadow:0 4px 15px rgba(233,69,96,.4)}
+.btn-secondary{background:var(--bg2);color:var(--text);border:2px solid var(--dim)}
+.btn-start{font-size:1.4rem;padding:1rem 3rem;background:var(--heal);color:#111;box-shadow:0 4px 20px rgba(78,204,163,.4)}
+#join-area{display:flex;flex-direction:column;gap:1rem;align-items:center}
+#join-area input{background:var(--bg2);border:2px solid var(--dim);border-radius:12px;padding:.8rem 1.2rem;font-size:1.5rem;color:var(--gold);text-align:center;letter-spacing:.25em;width:10rem}
+#join-area input:focus{border-color:var(--gold);outline:none}
+#join-area input::placeholder{color:#555;letter-spacing:normal;font-size:1rem}
+#join-status{font-size:.9rem;min-height:1.2em}
+.status-ok{color:var(--heal)}
+.status-err{color:var(--accent)}
+#name-input{font-size:1.1rem !important;letter-spacing:normal !important;width:12rem !important}
+#name-input::placeholder{font-size:1rem !important}
+
+/* --- Host Game --- */
+#host-game{padding:.5rem;gap:0;justify-content:flex-start}
+.boss-area{width:100%;display:flex;flex-direction:column;align-items:center;padding:.5rem 0}
+.boss-sprite{font-size:clamp(4rem,12vw,8rem);line-height:1;transition:filter .3s;position:relative}
+.boss-sprite.damaged{animation:shake .4s ease-in-out}
+.boss-sprite.healing{animation:glow-green .5s ease-in-out}
+.hp-bar-container{width:min(90%,700px);height:clamp(28px,4vw,48px);background:#333;border-radius:24px;overflow:hidden;border:3px solid #555;margin:.4rem 0;position:relative}
+.hp-bar{height:100%;border-radius:20px;transition:width .6s ease,background .6s;display:flex;align-items:center;justify-content:flex-end;padding-right:12px;font-weight:900;font-size:clamp(.8rem,2vw,1.2rem);color:#111;min-width:3rem}
+.hp-label{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-weight:900;font-size:clamp(.9rem,2.5vw,1.4rem);text-shadow:0 1px 3px rgba(0,0,0,.7);z-index:2;pointer-events:none}
+.damage-number{position:absolute;font-weight:900;font-size:1.4rem;pointer-events:none;z-index:10;animation:float-up 1s ease-out forwards}
+.damage-number.dmg{color:var(--accent)}
+.damage-number.heal-num{color:var(--heal)}
+.round-info{display:flex;gap:2rem;font-size:clamp(.85rem,2vw,1.1rem);color:var(--dim);margin-bottom:.3rem}
+.round-info span{display:flex;align-items:center;gap:.3rem}
+
+.seg { text-decoration: overline; display: inline; }
+
+/* Question area */
+.question-area{width:100%;flex:1;display:flex;flex-direction:column;align-items:center;padding:0 1rem;overflow:hidden}
+.svg-container{width:100%;display:flex;justify-content:center;margin:0.5rem 0}
+.question-text{font-size:clamp(1rem,3vw,1.6rem);text-align:center;padding:.6rem;line-height:1.5;max-width:800px}
+.options-grid{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;width:min(95%,700px);margin-top:.5rem}
+.option-card{background:var(--bg2);border:2px solid #444;border-radius:12px;padding:.7rem 1rem;font-size:clamp(.85rem,2.2vw,1.2rem);display:flex;align-items:center;gap:.6rem;transition:border-color .2s,background .2s}
+.option-card .letter{width:2rem;height:2rem;border-radius:50%;background:#333;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:.9rem;flex-shrink:0}
+.option-card.correct{border-color:var(--heal);background:rgba(78,204,163,.15)}
+.option-card.correct .letter{background:var(--heal);color:#111}
+.option-card.wrong{border-color:var(--accent);background:rgba(233,69,96,.1)}
+.explanation-box{margin-top:.5rem;padding:.5rem 1rem;background:rgba(78,204,163,.1);border-left:3px solid var(--heal);border-radius:0 8px 8px 0;font-size:clamp(.8rem,1.8vw,1rem);max-width:700px;text-align:left}
+
+/* Timer */
+.timer-bar-container{width:min(95%,700px);height:6px;background:#333;border-radius:3px;margin-top:.4rem}
+.timer-bar{height:100%;border-radius:3px;transition:width .25s linear;background:var(--heal)}
+.timer-bar.urgent{background:var(--accent)}
+
+/* Host controls */
+.host-controls{display:flex;gap:.8rem;padding:.5rem;flex-wrap:wrap;justify-content:center}
+.host-controls .btn{font-size:.9rem;padding:.5rem 1.2rem}
+
+/* Manual mode */
+.manual-bar{display:none;gap:.6rem;align-items:center;flex-wrap:wrap;justify-content:center;padding:.3rem}
+.manual-bar.active{display:flex}
+.manual-bar .btn{font-size:.85rem;padding:.5rem 1rem}
+.manual-result-btns{display:flex;gap:.5rem}
+.manual-result-btns .btn{min-width:3.5rem}
+
+/* Room code mini (during game) */
+.room-mini{position:fixed;top:.5rem;right:.5rem;background:var(--bg2);border:1px solid var(--gold);border-radius:8px;padding:.3rem .7rem;font-size:.8rem;color:var(--gold);z-index:20;opacity:.8}
+
+/* --- Player Game --- */
+#player-game{padding:1rem;gap:.8rem;justify-content:flex-start;padding-top:2rem}
+.player-question{font-size:clamp(1.1rem,4vw,1.5rem);text-align:center;line-height:1.5;padding:0 .5rem;flex-shrink:0}
+.player-options{display:flex;flex-direction:column;gap:.8rem;width:100%;max-width:400px;margin-top:1rem}
+.answer-btn{background:var(--bg2);border:3px solid #444;border-radius:16px;padding:1rem;font-size:clamp(1rem,3.5vw,1.3rem);color:var(--text);display:flex;align-items:center;gap:.8rem;transition:all .15s;min-height:3.5rem}
+.answer-btn:active{transform:scale(.97)}
+.answer-btn .letter{width:2.5rem;height:2.5rem;border-radius:50%;background:#333;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:1.1rem;flex-shrink:0}
+.answer-btn.selected{border-color:var(--gold);background:rgba(240,192,64,.1)}
+.answer-btn.correct-answer{border-color:var(--heal);background:rgba(78,204,163,.2)}
+.answer-btn.correct-answer .letter{background:var(--heal);color:#111}
+.answer-btn.wrong-answer{border-color:var(--accent);background:rgba(233,69,96,.15)}
+.answer-btn.wrong-answer .letter{background:var(--accent);color:#fff}
+.answer-btn:disabled{opacity:.6;pointer-events:none}
+
+.player-feedback{font-size:1.3rem;font-weight:700;text-align:center;min-height:2rem}
+.player-feedback.correct-fb{color:var(--heal)}
+.player-feedback.wrong-fb{color:var(--accent)}
+.player-waiting{color:var(--dim);font-size:1rem;text-align:center}
+
+/* --- Victory --- */
+#victory{gap:1rem}
+#victory h1{font-size:clamp(2rem,7vw,4rem);color:var(--gold);text-shadow:0 0 30px rgba(240,192,64,.5)}
+#victory .trophy{font-size:clamp(4rem,15vw,8rem)}
+.confetti-container{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:100;overflow:hidden}
+.confetti{position:absolute;width:10px;height:10px;top:-20px;animation:confetti-fall linear forwards}
+
+/* --- Summary --- */
+#summary{gap:.8rem;overflow-y:auto;padding:1.5rem;justify-content:flex-start;padding-top:2rem}
+#summary h2{font-size:1.5rem;color:var(--gold)}
+.summary-item{background:var(--bg2);border-radius:12px;padding:.8rem 1rem;width:min(95%,600px);display:flex;justify-content:space-between;align-items:center;gap:.5rem}
+.summary-item .q-text{font-size:.9rem;flex:1}
+.summary-item .accuracy{font-weight:700;font-size:1.1rem;min-width:3rem;text-align:right}
+.accuracy.good{color:var(--heal)}
+.accuracy.mid{color:var(--gold)}
+.accuracy.bad{color:var(--accent)}
+
+/* --- Defeat --- */
+#defeat{gap:1rem}
+#defeat h1{font-size:clamp(1.5rem,5vw,2.5rem);color:var(--accent)}
+#defeat .monster-wins{font-size:clamp(3rem,10vw,6rem)}
+
+/* --- Animations --- */
+@keyframes shake{
+  0%,100%{transform:translateX(0)}
+  20%{transform:translateX(-15px) rotate(-2deg)}
+  40%{transform:translateX(12px) rotate(2deg)}
+  60%{transform:translateX(-8px) rotate(-1deg)}
+  80%{transform:translateX(5px) rotate(1deg)}
+}
+@keyframes glow-green{
+  0%,100%{filter:brightness(1)}
+  50%{filter:brightness(1.5) hue-rotate(-30deg)}
+}
+@keyframes float-up{
+  0%{opacity:1;transform:translateY(0)}
+  100%{opacity:0;transform:translateY(-60px)}
+}
+@keyframes confetti-fall{
+  0%{transform:translateY(0) rotate(0deg)}
+  100%{transform:translateY(110vh) rotate(720deg)}
+}
+@keyframes pulse{
+  0%,100%{transform:scale(1)}
+  50%{transform:scale(1.05)}
+}
+.pulse{animation:pulse 1.5s infinite}
+</style>
+</head>
+<body>
+
+<!-- ====== LOBBY ====== -->
+<div id="lobby" class="screen active">
+  <h1>Strahlensatz Boss-Fight</h1>
+  <p class="subtitle">Kooperatives Mathe-Lernspiel</p>
+
+  <!-- Host lobby -->
+  <div id="host-lobby" style="display:none">
+    <div class="room-display">
+      <small>Room-Code</small>
+      <span id="room-code-display">----</span>
+    </div>
+    <p id="player-count">Warte auf Spieler...</p>
+    <p style="color:var(--dim);font-size:.85rem;max-width:400px" id="host-url-hint"></p>
+    <button class="btn btn-start" id="btn-start" disabled>Spiel starten</button>
+    <button class="btn btn-secondary" id="btn-manual" style="font-size:.85rem">Manueller Modus (ohne Smartphones)</button>
+  </div>
+
+  <!-- Player lobby -->
+  <div id="player-lobby">
+    <div id="join-area">
+      <input type="text" id="name-input" placeholder="Dein Name" maxlength="15" autocomplete="off">
+      <input type="text" id="code-input" placeholder="Code" maxlength="4" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
+      <button class="btn btn-primary" id="btn-join">Beitreten</button>
+      <p id="join-status">&nbsp;</p>
+    </div>
+  </div>
+</div>
+
+<!-- ====== HOST GAME ====== -->
+<div id="host-game" class="screen">
+  <div class="room-mini" id="room-mini"></div>
+  <div class="boss-area">
+    <div class="boss-sprite" id="boss-sprite">👾</div>
+    <div class="hp-bar-container">
+      <div class="hp-label" id="hp-label">100 / 100</div>
+      <div class="hp-bar" id="hp-bar" style="width:100%;background:var(--heal)"></div>
+    </div>
+    <div class="round-info">
+      <span>📋 Frage <strong id="round-num">1</strong>/12</span>
+      <span id="players-info">👥 0 Spieler</span>
+      <span id="answers-info">✅ 0 / ❌ 0</span>
+    </div>
+  </div>
+  <div class="question-area">
+    <div class="question-text" id="host-question"></div>
+    <div id="host-svg" class="svg-container"></div>
+    <div class="options-grid" id="host-options"></div>
+    <div class="explanation-box" id="host-explanation" style="display:none"></div>
+    <div class="timer-bar-container" id="timer-container">
+      <div class="timer-bar" id="timer-bar" style="width:100%"></div>
+    </div>
+  </div>
+  <div class="host-controls" id="host-controls">
+    <button class="btn btn-primary" id="btn-next" style="display:none">Nächste Frage ➡</button>
+    <button class="btn btn-secondary" id="btn-reveal" style="display:none">Lösung zeigen</button>
+  </div>
+  <!-- Manual mode controls -->
+  <div class="manual-bar" id="manual-bar">
+    <span style="color:var(--dim);font-size:.85rem">Manuell:</span>
+    <div class="manual-result-btns">
+      <button class="btn" style="background:var(--heal);color:#111" id="btn-manual-correct">✅ Richtig</button>
+      <button class="btn" style="background:var(--accent);color:#fff" id="btn-manual-wrong">❌ Falsch</button>
+    </div>
+  </div>
+</div>
+
+<!-- ====== PLAYER GAME ====== -->
+<div id="player-game" class="screen">
+  <div class="player-question" id="player-question">Warte auf die nächste Frage...</div>
+  <div id="player-svg" class="svg-container"></div>
+  <div class="player-options" id="player-options"></div>
+  <div class="player-feedback" id="player-feedback"></div>
+  <div class="player-waiting" id="player-waiting"></div>
+</div>
+
+<!-- ====== VICTORY ====== -->
+<div id="victory" class="screen">
+  <div class="trophy">🏆</div>
+  <h1>BOSS BESIEGT!</h1>
+  <p style="font-size:1.2rem;color:var(--heal)">Das Mathemonster ist besiegt!</p>
+  <p id="victory-stats" style="color:var(--dim)"></p>
+  <button class="btn btn-primary" id="btn-summary">Fehleranalyse anzeigen</button>
+</div>
+
+<!-- ====== DEFEAT ====== -->
+<div id="defeat" class="screen">
+  <div class="monster-wins">👾</div>
+  <h1>Knapp daneben!</h1>
+  <p style="font-size:1.1rem;color:var(--dim)">Das Mathemonster hat überlebt — beim nächsten Mal!</p>
+  <p id="defeat-stats" style="color:var(--dim)"></p>
+  <button class="btn btn-primary" id="btn-summary-defeat">Fehleranalyse anzeigen</button>
+</div>
+
+<!-- ====== SUMMARY ====== -->
+<div id="summary" class="screen">
+  <h2>Fehleranalyse</h2>
+  <div id="summary-list"></div>
+  <button class="btn btn-secondary" style="margin-top:1rem" onclick="location.reload()">Neustart</button>
+</div>
+
+<!-- Confetti container -->
+<div class="confetti-container" id="confetti-container"></div>
+
+<script>
+// ===================== QUESTIONS =====================
+const questions = [
+  {
+    question: 'V-Figur: <span class="seg">ZA</span> = 4, <span class="seg">ZA\'</span> = 12, <span class="seg">ZB</span> = 5.<br>Wie lang ist <span class="seg">ZB\'</span>?',
+    options: ['10', '15', '20', '7'],
+    correct: 1,
+    explanation: '<span class="seg">ZA</span> / <span class="seg">ZA\'</span> = <span class="seg">ZB</span> / <span class="seg">ZB\'</span> \u2192 4/12 = 5/x \u2192 x = 15',
+    svg: '<svg viewBox="0 0 240 130" width="100%" style="max-width:280px;height:auto"><line x1="20" y1="20" x2="220" y2="40" stroke="#aaa" stroke-width="2"/><line x1="20" y1="20" x2="220" y2="110" stroke="#aaa" stroke-width="2"/><line x1="80" y1="26" x2="80" y2="47" stroke="#aaa" stroke-width="2" stroke-dasharray="4 3"/><line x1="180" y1="36" x2="180" y2="92" stroke="#aaa" stroke-width="2" stroke-dasharray="4 3"/><circle cx="20" cy="20" r="3" fill="#f0c040"/><text x="10" y="20" fill="#eee" font-size="11">Z</text><text x="75" y="18" fill="#eee" font-size="11">A</text><text x="175" y="28" fill="#eee" font-size="11">A\'</text><text x="75" y="62" fill="#eee" font-size="11">B</text><text x="175" y="107" fill="#eee" font-size="11">B\'</text><text x="45" y="18" fill="#f0c040" font-size="10">4</text><text x="45" y="50" fill="#f0c040" font-size="10">5</text><text x="120" y="25" fill="#f0c040" font-size="10">12</text></svg>'
+  },
+  {
+    question: 'X-Figur: <span class="seg">ZA</span> = 6, <span class="seg">ZA\'</span> = 3, <span class="seg">ZB</span> = 10.<br>Wie lang ist <span class="seg">ZB\'</span>?',
+    options: ['5', '20', '8', '15'],
+    correct: 0,
+    explanation: '<span class="seg">ZA</span> / <span class="seg">ZA\'</span> = <span class="seg">ZB</span> / <span class="seg">ZB\'</span> \u2192 6/3 = 10/x \u2192 x = 5',
+    svg: '<svg viewBox="0 0 240 130" width="100%" style="max-width:280px;height:auto"><line x1="40" y1="30" x2="200" y2="100" stroke="#aaa" stroke-width="2"/><line x1="40" y1="100" x2="200" y2="30" stroke="#aaa" stroke-width="2"/><line x1="60" y1="39" x2="60" y2="91" stroke="#aaa" stroke-width="2" stroke-dasharray="4 3"/><line x1="160" y1="83" x2="160" y2="47" stroke="#aaa" stroke-width="2" stroke-dasharray="4 3"/><circle cx="120" cy="65" r="3" fill="#f0c040"/><text x="125" y="60" fill="#eee" font-size="11">Z</text><text x="45" y="25" fill="#eee" font-size="11">A</text><text x="165" y="40" fill="#eee" font-size="11">B\'</text><text x="45" y="115" fill="#eee" font-size="11">B</text><text x="165" y="105" fill="#eee" font-size="11">A\'</text><text x="80" y="40" fill="#f0c040" font-size="10">6</text><text x="80" y="100" fill="#f0c040" font-size="10">10</text><text x="145" y="95" fill="#f0c040" font-size="10">3</text></svg>'
+  },
+  {
+    question: 'V-Figur: <span class="seg">ZA</span> = 4, <span class="seg">AA\'</span> = 8, <span class="seg">ZB</span> = 3.<br>Wie lang ist <span class="seg">BB\'</span>?',
+    options: ['4', '6', '8', '12'],
+    correct: 1,
+    explanation: '<span class="seg">ZA</span> / <span class="seg">AA\'</span> = <span class="seg">ZB</span> / <span class="seg">BB\'</span> \u2192 4/8 = 3/x \u2192 x = 6',
+    svg: '<svg viewBox="0 0 240 130" width="100%" style="max-width:280px;height:auto"><line x1="20" y1="20" x2="220" y2="40" stroke="#aaa" stroke-width="2"/><line x1="20" y1="20" x2="220" y2="110" stroke="#aaa" stroke-width="2"/><line x1="80" y1="26" x2="80" y2="47" stroke="#aaa" stroke-width="2" stroke-dasharray="4 3"/><line x1="180" y1="36" x2="180" y2="92" stroke="#aaa" stroke-width="2" stroke-dasharray="4 3"/><circle cx="20" cy="20" r="3" fill="#f0c040"/><text x="10" y="20" fill="#eee" font-size="11">Z</text><text x="75" y="18" fill="#eee" font-size="11">A</text><text x="175" y="28" fill="#eee" font-size="11">A\'</text><text x="75" y="62" fill="#eee" font-size="11">B</text><text x="175" y="107" fill="#eee" font-size="11">B\'</text><text x="45" y="18" fill="#f0c040" font-size="10">4</text><text x="45" y="50" fill="#f0c040" font-size="10">3</text><text x="120" y="25" fill="#f0c040" font-size="10">8</text></svg>'
+  },
+  {
+    question: 'Welche Bedingung muss gelten, damit man die Strahlens\u00e4tze anwenden darf?',
+    options: ['Rechter Winkel', 'Parallele Geraden', 'Gleichseitiges Dreieck', 'Zentrum im Ursprung'],
+    correct: 1,
+    explanation: 'Die Geraden (Parallelen), die die Strahlen schneiden, m\u00fcssen parallel zueinander sein.',
+    svg: '<svg viewBox="0 0 240 130" width="100%" style="max-width:280px;height:auto"><line x1="20" y1="30" x2="220" y2="40" stroke="#aaa" stroke-width="2"/><line x1="20" y1="30" x2="220" y2="100" stroke="#aaa" stroke-width="2"/><line x1="80" y1="33" x2="80" y2="51" stroke="#f0c040" stroke-width="2"/><line x1="160" y1="37" x2="160" y2="79" stroke="#f0c040" stroke-width="2"/><text x="110" y="50" fill="#f0c040" font-size="11">g || h</text><circle cx="20" cy="30" r="3" fill="#f0c040"/><text x="10" y="30" fill="#eee" font-size="11">Z</text><text x="75" y="28" fill="#eee" font-size="11">A</text><text x="155" y="32" fill="#eee" font-size="11">A\'</text><text x="75" y="65" fill="#eee" font-size="11">B</text><text x="155" y="95" fill="#eee" font-size="11">B\'</text></svg>'
+  },
+  {
+    question: 'Ein Stab (1,5 m) wirft 2 m Schatten.<br>Ein Baum wirft 10 m Schatten.<br>Wie hoch ist der Baum?',
+    options: ['6 m', '7 m', '7,5 m', '8 m'],
+    correct: 2,
+    explanation: '1,5 / 2 = h / 10 \u2192 h = 1,5 \u00d7 10 / 2 = 7,5 m',
+    svg: '<svg viewBox="0 0 240 130" width="100%" style="max-width:280px;height:auto"><line x1="10" y1="120" x2="230" y2="120" stroke="#aaa" stroke-width="2"/><line x1="40" y1="120" x2="40" y2="100" stroke="#eee" stroke-width="3"/><line x1="150" y1="120" x2="150" y2="40" stroke="#eee" stroke-width="5"/><line x1="40" y1="100" x2="140" y2="120" stroke="#f0c040" stroke-dasharray="4 2"/><line x1="150" y1="40" x2="250" y2="120" stroke="#f0c040" stroke-dasharray="4 2"/><text x="25" y="110" fill="#eee" font-size="10">1,5m</text><text x="80" y="128" fill="#eee" font-size="10">2m</text><text x="135" y="35" fill="#eee" font-size="10">h=?</text><text x="190" y="128" fill="#eee" font-size="10">10m</text><text x="145" y="125" fill="#eee" font-size="10">Z</text><text x="130" y="105" fill="#eee" font-size="10">A</text><text x="145" y="30" fill="#eee" font-size="10">A\'</text></svg>'
+  },
+  {
+    question: 'Ein Sch\u00fcler schreibt:<br><strong><span class="seg">AA\'</span> / <span class="seg">ZA\'</span> = <span class="seg">BB\'</span> / <span class="seg">ZB\'</span></strong><br>Ist das richtig?',
+    options: ['Stimmt', 'Falsch, richtig: <span class="seg">ZA</span>/<span class="seg">ZA\'</span>=...', 'Nur bei X-Figur', 'Falsch, richtig: <span class="seg">AB</span>/<span class="seg">A\'B\'</span>=...'],
+    correct: 1,
+    explanation: 'Der 1. SS setzt <span class="seg">ZA</span> zu <span class="seg">ZA\'</span> ins Verh\u00e4ltnis \u2014 nicht <span class="seg">AA\'</span> zu <span class="seg">ZA\'</span>.',
+    svg: '<svg viewBox="0 0 240 130" width="100%" style="max-width:280px;height:auto"><line x1="20" y1="20" x2="220" y2="40" stroke="#aaa" stroke-width="2"/><line x1="20" y1="20" x2="220" y2="110" stroke="#aaa" stroke-width="2"/><line x1="80" y1="26" x2="80" y2="47" stroke="#e94560" stroke-width="3"/><line x1="180" y1="36" x2="180" y2="92" stroke="#e94560" stroke-width="3"/><circle cx="20" cy="20" r="3" fill="#f0c040"/><text x="10" y="20" fill="#eee" font-size="11">Z</text><text x="75" y="18" fill="#eee" font-size="11">A</text><text x="175" y="28" fill="#eee" font-size="11">A\'</text><text x="75" y="62" fill="#eee" font-size="11">B</text><text x="175" y="107" fill="#eee" font-size="11">B\'</text></svg>'
+  },
+  {
+    question: 'Lochkamera: Wie verlaufen die Lichtstrahlen? / Welche Strahlenfigur wird hier verwendet?',
+    options: ['Wegen der V-Figur', 'Wegen der X-Figur', 'Wegen der Linse', 'Zufall'],
+    correct: 1,
+    explanation: 'Das Loch ist das Zentrum <span class="seg">Z</span>. Die Lichtstrahlen kreuzen sich dort \u2192 X-Figur.',
+    svg: '<svg viewBox="0 0 240 130" width="100%" style="max-width:280px;height:auto"><rect x="40" y="25" width="100" height="80" fill="none" stroke="#aaa" stroke-width="2"/><rect x="138" y="55" width="4" height="20" fill="#1a1a2e" stroke="#aaa"/><circle cx="140" cy="65" r="2" fill="#fff"/><line x1="210" y1="45" x2="50" y2="105" stroke="#f0c040" stroke-width="1" stroke-dasharray="2 2"/><line x1="210" y1="85" x2="50" y2="25" stroke="#f0c040" stroke-width="1" stroke-dasharray="2 2"/><text x="215" y="45" fill="#eee" font-size="10">A</text><text x="215" y="85" fill="#eee" font-size="10">B</text><text x="135" y="60" fill="#eee" font-size="10">Z</text><text x="30" y="25" fill="#eee" font-size="10">B\'</text><text x="30" y="110" fill="#eee" font-size="10">A\'</text><text x="70" y="70" fill="#eee" font-size="12">Kamera</text></svg>'
+  },
+  {
+    question: 'V-Figur mit Zentrum Z.<br>Welche Gleichung ist korrekt?',
+    options: ['<span class="seg">ZA</span> / <span class="seg">ZB</span> = <span class="seg">ZA\'</span> / <span class="seg">ZB\'</span>', '<span class="seg">ZA</span> / <span class="seg">ZA\'</span> = <span class="seg">ZB</span> / <span class="seg">ZB\'</span>', '<span class="seg">AA\'</span> / <span class="seg">BB\'</span> = <span class="seg">ZA</span> / <span class="seg">ZB</span>', '<span class="seg">AB</span> / <span class="seg">ZA</span> = <span class="seg">A\'B\'</span> / <span class="seg">ZA\'</span>'],
+    correct: 1,
+    explanation: '1. Strahlensatz: <span class="seg">ZA</span> / <span class="seg">ZA\'</span> = <span class="seg">ZB</span> / <span class="seg">ZB\'</span> (Strecken auf demselben Strahl).',
+    svg: '<svg viewBox="0 0 240 130" width="100%" style="max-width:280px;height:auto"><line x1="20" y1="20" x2="220" y2="40" stroke="#aaa" stroke-width="2"/><line x1="20" y1="20" x2="220" y2="110" stroke="#aaa" stroke-width="2"/><line x1="80" y1="26" x2="80" y2="47" stroke="#aaa" stroke-width="2"/><line x1="180" y1="36" x2="180" y2="92" stroke="#aaa" stroke-width="2"/><circle cx="20" cy="20" r="3" fill="#f0c040"/><text x="10" y="20" fill="#eee" font-size="11">Z</text><text x="75" y="18" fill="#eee" font-size="11">A</text><text x="175" y="28" fill="#eee" font-size="11">A\'</text><text x="75" y="62" fill="#eee" font-size="11">B</text><text x="175" y="107" fill="#eee" font-size="11">B\'</text></svg>'
+  },
+  {
+    question: 'V-Figur: <span class="seg">ZA</span> = 4, <span class="seg">ZA\'</span> = 10, <span class="seg">A\'B\'</span> = 15.<br>Wie lang ist <span class="seg">AB</span>?',
+    options: ['5', '6', '7,5', '9'],
+    correct: 1,
+    explanation: '2. SS: <span class="seg">AB</span> / <span class="seg">A\'B\'</span> = <span class="seg">ZA</span> / <span class="seg">ZA\'</span> \u2192 x / 15 = 4 / 10 \u2192 x = 6',
+    svg: '<svg viewBox="0 0 240 130" width="100%" style="max-width:280px;height:auto"><line x1="20" y1="20" x2="220" y2="40" stroke="#aaa" stroke-width="2"/><line x1="20" y1="20" x2="220" y2="110" stroke="#aaa" stroke-width="2"/><line x1="100" y1="28" x2="100" y2="58" stroke="#f0c040" stroke-width="2"/><line x1="180" y1="36" x2="180" y2="92" stroke="#f0c040" stroke-width="2"/><circle cx="20" cy="20" r="3" fill="#f0c040"/><text x="10" y="20" fill="#eee" font-size="11">Z</text><text x="95" y="18" fill="#eee" font-size="11">A</text><text x="175" y="28" fill="#eee" font-size="11">A\'</text><text x="105" y="65" fill="#eee" font-size="11">B</text><text x="185" y="105" fill="#eee" font-size="11">B\'</text><text x="90" y="50" fill="#eee" font-size="11">x</text><text x="185" y="70" fill="#eee" font-size="11">15</text><text x="45" y="18" fill="#f0c040" font-size="10">ZA=4</text><text x="120" y="25" fill="#f0c040" font-size="10">ZA\'=10</text></svg>'
+  },
+  {
+    question: 'V-Figur: <span class="seg">ZA</span> = 4, <span class="seg">ZA\'</span> = 6, <span class="seg">AB</span> = 5.<br>Wie lang ist <span class="seg">A\'B\'</span>?',
+    options: ['7', '7,5', '8', '9'],
+    correct: 1,
+    explanation: '2. SS: <span class="seg">AB</span> / <span class="seg">A\'B\'</span> = <span class="seg">ZA</span> / <span class="seg">ZA\'</span> \u2192 5/x = 4/6 \u2192 x = 7,5',
+    svg: '<svg viewBox="0 0 240 130" width="100%" style="max-width:280px;height:auto"><line x1="20" y1="20" x2="220" y2="40" stroke="#aaa" stroke-width="2"/><line x1="20" y1="20" x2="220" y2="110" stroke="#aaa" stroke-width="2"/><line x1="100" y1="28" x2="100" y2="58" stroke="#f0c040" stroke-width="2"/><line x1="180" y1="36" x2="180" y2="92" stroke="#f0c040" stroke-width="2"/><circle cx="20" cy="20" r="3" fill="#f0c040"/><text x="10" y="20" fill="#eee" font-size="11">Z</text><text x="95" y="18" fill="#eee" font-size="11">A</text><text x="175" y="28" fill="#eee" font-size="11">A\'</text><text x="105" y="65" fill="#eee" font-size="11">B</text><text x="185" y="105" fill="#eee" font-size="11">B\'</text><text x="90" y="50" fill="#eee" font-size="11">5</text><text x="185" y="70" fill="#eee" font-size="11">?</text><text x="50" y="18" fill="#f0c040" font-size="10">4</text><text x="120" y="25" fill="#f0c040" font-size="10">6</text></svg>'
+  },
+  {
+    question: 'X-Figur: <span class="seg">ZA</span> = 3, <span class="seg">ZA\'</span> = 5, <span class="seg">ZB</span> = 9.<br>Wie lang ist <span class="seg">ZB\'</span>?',
+    options: ['12', '15', '18', '21'],
+    correct: 1,
+    explanation: '<span class="seg">ZA</span> / <span class="seg">ZA\'</span> = <span class="seg">ZB</span> / <span class="seg">ZB\'</span> \u2192 3/5 = 9/x \u2192 x = 15',
+    svg: '<svg viewBox="0 0 240 130" width="100%" style="max-width:280px;height:auto"><line x1="40" y1="30" x2="200" y2="100" stroke="#aaa" stroke-width="2"/><line x1="40" y1="100" x2="200" y2="30" stroke="#aaa" stroke-width="2"/><line x1="70" y1="43" x2="70" y2="87" stroke="#aaa" stroke-width="2" stroke-dasharray="4 3"/><line x1="170" y1="87" x2="170" y2="43" stroke="#aaa" stroke-width="2" stroke-dasharray="4 3"/><circle cx="120" cy="65" r="3" fill="#f0c040"/><text x="125" y="60" fill="#eee" font-size="11">Z</text><text x="65" y="38" fill="#eee" font-size="11">A</text><text x="175" y="43" fill="#eee" font-size="11">B\'</text><text x="65" y="102" fill="#eee" font-size="11">B</text><text x="175" y="98" fill="#eee" font-size="11">A\'</text><text x="80" y="40" fill="#f0c040" font-size="10">3</text><text x="80" y="100" fill="#f0c040" font-size="10">9</text><text x="145" y="95" fill="#f0c040" font-size="10">5</text></svg>'
+  },
+  {
+    question: 'Flussbreite (X-Figur):<br><span class="seg">ZA</span> = 5 m, <span class="seg">ZA\'</span> = 8 m, <span class="seg">AB</span> = 12 m.<br>Wie breit ist <span class="seg">A\'B\'</span>?',
+    options: ['15 m', '19,2 m', '16 m', '20 m'],
+    correct: 1,
+    explanation: '<span class="seg">AB</span> / <span class="seg">A\'B\'</span> = <span class="seg">ZA</span> / <span class="seg">ZA\'</span> \u2192 12 / x = 5 / 8 \u2192 x = 19,2 m',
+    svg: '<svg viewBox="0 0 240 130" width="100%" style="max-width:280px;height:auto"><rect x="0" y="45" width="240" height="40" fill="#16213e"/><line x1="0" y1="45" x2="240" y2="45" stroke="#4ecca3" stroke-width="2"/><line x1="0" y1="85" x2="240" y2="85" stroke="#4ecca3" stroke-width="2"/><line x1="60" y1="20" x2="180" y2="110" stroke="#aaa" stroke-width="2"/><line x1="180" y1="20" x2="60" y2="110" stroke="#aaa" stroke-width="2"/><circle cx="120" cy="65" r="3" fill="#f0c040"/><text x="125" y="60" fill="#eee" font-size="11">Z</text><text x="65" y="18" fill="#eee" font-size="11">A</text><text x="175" y="18" fill="#eee" font-size="11">B\'</text><text x="175" y="125" fill="#eee" font-size="11">A\'</text><text x="65" y="125" fill="#eee" font-size="11">B</text><text x="70" y="35" fill="#f0c040" font-size="10">12m</text><text x="160" y="105" fill="#f0c040" font-size="10">?</text><text x="90" y="40" fill="#f0c040" font-size="10">5m</text><text x="140" y="95" fill="#f0c040" font-size="10">8m</text></svg>'
+  }
+];
+
+const LETTERS = ['A', 'B', 'C', 'D'];
+const TIMER_SECONDS = 30;
+
+// ===================== STATE =====================
+const state = {
+  isHost: false,
+  isManual: false,
+  roomCode: '',
+  peer: null,
+  connections: [],   // host: player connections
+  hostConn: null,    // player: connection to host
+  playerName: '',
+  currentQ: 0,
+  shuffledQ: [],
+  bossHP: 100,
+  bossMaxHP: 100,
+  timerInterval: null,
+  timeLeft: TIMER_SECONDS,
+  answered: 0,
+  correctCount: 0,
+  wrongCount: 0,
+  questionResults: [],
+  playerAnswered: false,
+  roundRevealed: false
+};
+
+// ===================== INIT =====================
+function init() {
+  const hash = location.hash.toLowerCase();
+  if (hash === '#host') {
+    state.isHost = true;
+    document.getElementById('host-lobby').style.display = 'flex';
+    document.getElementById('host-lobby').style.flexDirection = 'column';
+    document.getElementById('host-lobby').style.alignItems = 'center';
+    document.getElementById('host-lobby').style.gap = '1rem';
+    document.getElementById('player-lobby').style.display = 'none';
+    initHost();
+  } else {
+    document.getElementById('host-lobby').style.display = 'none';
+    document.getElementById('player-lobby').style.display = 'flex';
+  }
+  bindEvents();
+}
+
+// ===================== HOST INIT =====================
+function initHost() {
+  state.roomCode = String(1000 + Math.floor(Math.random() * 9000));
+  document.getElementById('room-code-display').textContent = state.roomCode;
+
+  const url = location.href.replace(/#.*/, '');
+  document.getElementById('host-url-hint').textContent = 'URL: ' + url;
+
+  const peerId = 'ss-boss-' + state.roomCode;
+  try {
+    state.peer = new Peer(peerId, { debug: 0 });
+  } catch (e) {
+    showHostError('PeerJS konnte nicht geladen werden. Verwende den manuellen Modus.');
+    return;
+  }
+
+  state.peer.on('open', () => {
+    console.log('Host peer open:', peerId);
+  });
+
+  state.peer.on('connection', (conn) => {
+    conn.on('open', () => {
+      state.connections.push(conn);
+      updatePlayerCount();
+      conn.on('data', (data) => handlePlayerMessage(conn, data));
+      conn.on('close', () => {
+        state.connections = state.connections.filter(c => c !== conn);
+        updatePlayerCount();
+      });
+    });
+  });
+
+  state.peer.on('error', (err) => {
+    console.error('Host peer error:', err);
+    if (err.type === 'unavailable-id') {
+      showHostError('Room-Code bereits vergeben. Seite neu laden.');
+    }
+  });
+}
+
+function showHostError(msg) {
+  document.getElementById('player-count').textContent = msg;
+  document.getElementById('player-count').style.color = 'var(--accent)';
+}
+
+function updatePlayerCount() {
+  const n = state.connections.length;
+  document.getElementById('player-count').textContent = n === 0
+    ? 'Warte auf Spieler...'
+    : n + ' Spieler verbunden';
+  document.getElementById('btn-start').disabled = n === 0 && !state.isManual;
+}
+
+// ===================== HOST GAME LOGIC =====================
+function startGame() {
+  const n = Math.max(state.connections.length, 1);
+  if (state.isManual) {
+    state.bossMaxHP = 100;
+  } else {
+    state.bossMaxHP = Math.max(80, n * 5);
+  }
+  state.bossHP = state.bossMaxHP;
+  state.currentQ = 0;
+  state.questionResults = [];
+
+  // Shuffle questions
+  state.shuffledQ = [...questions];
+  for (let i = state.shuffledQ.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [state.shuffledQ[i], state.shuffledQ[j]] = [state.shuffledQ[j], state.shuffledQ[i]];
+  }
+
+  showScreen('host-game');
+  document.getElementById('room-mini').textContent = 'Code: ' + state.roomCode;
+
+  if (state.isManual) {
+    document.getElementById('manual-bar').classList.add('active');
+    document.getElementById('timer-container').style.display = 'none';
+  }
+
+  showHostQuestion();
+  broadcastQuestion();
+}
+
+function showHostQuestion() {
+  const q = state.shuffledQ[state.currentQ];
+
+  document.getElementById('round-num').textContent = state.currentQ + 1;
+  document.getElementById('host-question').innerHTML = q.question;
+  document.getElementById('host-svg').innerHTML = q.svg || '';
+  document.getElementById('host-explanation').style.display = 'none';
+  document.getElementById('btn-reveal').style.display = 'inline-flex';
+  document.getElementById('btn-next').style.display = 'none';
+
+  const grid = document.getElementById('host-options');
+  grid.innerHTML = '';
+  q.options.forEach((opt, i) => {
+    const div = document.createElement('div');
+    div.className = 'option-card';
+    div.id = 'host-opt-' + i;
+    div.innerHTML = '<span class="letter">' + LETTERS[i] + '</span><span>' + opt + '</span>';
+    grid.appendChild(div);
+  });
+
+  updateHP();
+  updatePlayersInfo();
+  resetRoundState();
+
+  if (!state.isManual) {
+    startTimer();
+  }
+}
+
+function resetRoundState() {
+  state.answered = 0;
+  state.correctCount = 0;
+  state.wrongCount = 0;
+  state.roundRevealed = false;
+  document.getElementById('answers-info').textContent = '\u2705 0 / \u274c 0';
+}
+
+function broadcastQuestion() {
+  const q = state.shuffledQ[state.currentQ];
+  const msg = {
+    type: 'question',
+    index: state.currentQ,
+    question: q.question,
+    options: q.options,
+    svg: q.svg
+  };
+  state.connections.forEach(c => {
+    try { c.send(msg); } catch (e) {}
+  });
+}
+
+function handlePlayerMessage(conn, data) {
+  if (data.type === 'answer' && data.index === state.currentQ && !state.roundRevealed) {
+    state.answered++;
+    const q = state.shuffledQ[state.currentQ];
+    const isCorrect = data.answer === q.correct;
+
+    if (isCorrect) {
+      state.correctCount++;
+      state.bossHP = Math.max(0, state.bossHP - 1);
+      showDamageNumber(-1);
+    } else {
+      state.wrongCount++;
+      state.bossHP = Math.min(state.bossMaxHP, state.bossHP + 0.5);
+      showDamageNumber(0.5);
+    }
+
+    updateHP();
+    document.getElementById('answers-info').textContent =
+      '\u2705 ' + state.correctCount + ' / \u274c ' + state.wrongCount;
+
+    // Send feedback to player
+    try {
+      conn.send({
+        type: 'result',
+        correct: isCorrect,
+        hp: state.bossHP,
+        maxHp: state.bossMaxHP
+      });
+    } catch (e) {}
+
+    // Check if boss is dead
+    if (state.bossHP <= 0) {
+      clearTimer();
+      saveQuestionResult();
+      setTimeout(() => showVictory(), 800);
+      return;
+    }
+
+    // Auto-advance if all answered
+    if (state.answered >= state.connections.length) {
+      clearTimer();
+      revealAnswer();
+    }
+  }
+}
+
+function manualCorrect() {
+  state.correctCount++;
+  state.bossHP = Math.max(0, state.bossHP - 10);
+  showDamageNumber(-10);
+  updateHP();
+  if (state.bossHP <= 0) {
+    saveQuestionResult();
+    setTimeout(() => showVictory(), 800);
+  }
+}
+
+function manualWrong() {
+  state.wrongCount++;
+  state.bossHP = Math.min(state.bossMaxHP, state.bossHP + 3);
+  showDamageNumber(3);
+  updateHP();
+}
+
+function startTimer() {
+  state.timeLeft = TIMER_SECONDS;
+  const bar = document.getElementById('timer-bar');
+  bar.style.width = '100%';
+  bar.classList.remove('urgent');
+
+  clearTimer();
+  state.timerInterval = setInterval(() => {
+    state.timeLeft -= 0.25;
+    const pct = Math.max(0, (state.timeLeft / TIMER_SECONDS) * 100);
+    bar.style.width = pct + '%';
+    if (state.timeLeft <= 8) bar.classList.add('urgent');
+    if (state.timeLeft <= 0) {
+      clearTimer();
+      revealAnswer();
+    }
+  }, 250);
+}
+
+function clearTimer() {
+  if (state.timerInterval) {
+    clearInterval(state.timerInterval);
+    state.timerInterval = null;
+  }
+}
+
+function revealAnswer() {
+  if (state.roundRevealed) return;
+  state.roundRevealed = true;
+  clearTimer();
+
+  const q = state.shuffledQ[state.currentQ];
+  // Highlight correct option
+  const correctEl = document.getElementById('host-opt-' + q.correct);
+  if (correctEl) correctEl.classList.add('correct');
+
+  // Show explanation
+  const explBox = document.getElementById('host-explanation');
+  explBox.innerHTML = q.explanation;
+  explBox.style.display = 'block';
+
+  document.getElementById('btn-reveal').style.display = 'none';
+  document.getElementById('btn-next').style.display = 'inline-flex';
+
+  // Tell players the correct answer
+  state.connections.forEach(c => {
+    try { c.send({ type: 'reveal', correct: q.correct, explanation: q.explanation }); } catch (e) {}
+  });
+
+  saveQuestionResult();
+}
+
+function saveQuestionResult() {
+  if (state.questionResults.length <= state.currentQ) {
+    const total = state.isManual ? (state.correctCount + state.wrongCount) : state.connections.length;
+    state.questionResults.push({
+      index: state.currentQ,
+      correct: state.correctCount,
+      wrong: state.wrongCount,
+      total: Math.max(total, 1)
+    });
+  }
+}
+
+function nextQuestion() {
+  state.currentQ++;
+  if (state.currentQ >= questions.length) {
+    // Game over
+    if (state.bossHP <= 0) {
+      showVictory();
+    } else {
+      showDefeat();
+    }
+    return;
+  }
+  showHostQuestion();
+  broadcastQuestion();
+}
+
+function showDamageNumber(amount) {
+  const sprite = document.getElementById('boss-sprite');
+  const num = document.createElement('div');
+  num.className = 'damage-number ' + (amount < 0 ? 'dmg' : 'heal-num');
+  num.textContent = (amount < 0 ? '' : '+') + Math.abs(amount);
+  if (amount < 0) num.textContent = '-' + Math.abs(amount);
+  num.style.left = (Math.random() * 60 + 20) + '%';
+  sprite.parentElement.style.position = 'relative';
+  sprite.parentElement.appendChild(num);
+  setTimeout(() => num.remove(), 1000);
+
+  if (amount < 0) {
+    sprite.classList.add('damaged');
+    setTimeout(() => sprite.classList.remove('damaged'), 400);
+  } else {
+    sprite.classList.add('healing');
+    setTimeout(() => sprite.classList.remove('healing'), 500);
+  }
+}
+
+function updateHP() {
+  const pct = Math.max(0, (state.bossHP / state.bossMaxHP) * 100);
+  const bar = document.getElementById('hp-bar');
+  const label = document.getElementById('hp-label');
+  bar.style.width = pct + '%';
+
+  if (pct > 60) bar.style.background = 'var(--heal)';
+  else if (pct > 30) bar.style.background = 'var(--gold)';
+  else bar.style.background = 'var(--accent)';
+
+  label.textContent = Math.ceil(state.bossHP) + ' / ' + state.bossMaxHP;
+}
+
+function updatePlayersInfo() {
+  document.getElementById('players-info').textContent =
+    '\ud83d\udc65 ' + (state.isManual ? 'Manuell' : state.connections.length + ' Spieler');
+}
+
+// ===================== VICTORY / DEFEAT =====================
+function showVictory() {
+  clearTimer();
+  showScreen('victory');
+  const total = state.questionResults.reduce((a, r) => a + r.correct, 0);
+  const max = state.questionResults.reduce((a, r) => a + r.total, 0);
+  document.getElementById('victory-stats').textContent =
+    total + ' richtige Antworten insgesamt';
+  spawnConfetti();
+
+  state.connections.forEach(c => {
+    try { c.send({ type: 'victory' }); } catch (e) {}
+  });
+}
+
+function showDefeat() {
+  showScreen('defeat');
+  const total = state.questionResults.reduce((a, r) => a + r.correct, 0);
+  document.getElementById('defeat-stats').textContent =
+    'Boss-HP: ' + Math.ceil(state.bossHP) + ' / ' + state.bossMaxHP + ' \u2014 ' + total + ' richtige Antworten';
+
+  state.connections.forEach(c => {
+    try { c.send({ type: 'defeat' }); } catch (e) {}
+  });
+}
+
+function showSummary() {
+  showScreen('summary');
+  const list = document.getElementById('summary-list');
+  list.innerHTML = '';
+
+  // Sort by accuracy (worst first)
+  const sorted = [...state.questionResults].sort((a, b) =>
+    (a.correct / a.total) - (b.correct / b.total)
+  );
+
+  sorted.forEach(r => {
+    const q = state.shuffledQ[r.index];
+    const acc = r.total > 0 ? Math.round((r.correct / r.total) * 100) : 0;
+    const div = document.createElement('div');
+    div.className = 'summary-item';
+    const accClass = acc >= 70 ? 'good' : acc >= 40 ? 'mid' : 'bad';
+    div.innerHTML =
+      '<span class="q-text"><strong>F' + (r.index + 1) + ':</strong> ' +
+      q.options[q.correct] + '</span>' +
+      '<span class="accuracy ' + accClass + '">' + acc + '%</span>';
+    list.appendChild(div);
+  });
+
+  state.connections.forEach(c => {
+    try { c.send({ type: 'summary' }); } catch (e) {}
+  });
+}
+
+function spawnConfetti() {
+  const container = document.getElementById('confetti-container');
+  const colors = ['#e94560', '#4ecca3', '#f0c040', '#7b2d8e', '#00b4d8', '#ff6b6b', '#ffd93d'];
+  for (let i = 0; i < 120; i++) {
+    const el = document.createElement('div');
+    el.className = 'confetti';
+    el.style.left = Math.random() * 100 + '%';
+    el.style.background = colors[Math.floor(Math.random() * colors.length)];
+    el.style.width = (6 + Math.random() * 8) + 'px';
+    el.style.height = (6 + Math.random() * 8) + 'px';
+    el.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+    el.style.animationDuration = (2 + Math.random() * 3) + 's';
+    el.style.animationDelay = Math.random() * 2 + 's';
+    container.appendChild(el);
+  }
+  setTimeout(() => { container.innerHTML = ''; }, 6000);
+}
+
+// ===================== PLAYER LOGIC =====================
+function joinGame() {
+  const code = document.getElementById('code-input').value.trim();
+  const name = document.getElementById('name-input').value.trim() || 'Anonym';
+  state.playerName = name;
+
+  if (code.length !== 4 || !/^\d{4}$/.test(code)) {
+    setJoinStatus('Bitte 4-stelligen Code eingeben.', 'err');
+    return;
+  }
+
+  state.roomCode = code;
+  setJoinStatus('Verbinde...', '');
+
+  const myId = 'ss-play-' + code + '-' + Math.random().toString(36).substr(2, 6);
+  try {
+    state.peer = new Peer(myId, { debug: 0 });
+  } catch (e) {
+    setJoinStatus('Verbindungsfehler. Seite neu laden.', 'err');
+    return;
+  }
+
+  state.peer.on('open', () => {
+    const hostId = 'ss-boss-' + code;
+    const conn = state.peer.connect(hostId, { reliable: true });
+
+    conn.on('open', () => {
+      state.hostConn = conn;
+      setJoinStatus('Verbunden! Warte auf Spielstart...', 'ok');
+      document.getElementById('btn-join').disabled = true;
+      document.getElementById('code-input').disabled = true;
+
+      conn.on('data', (data) => handleHostMessage(data));
+      conn.on('close', () => {
+        setJoinStatus('Verbindung verloren.', 'err');
+      });
+    });
+
+    conn.on('error', (err) => {
+      setJoinStatus('Room nicht gefunden. Code korrekt?', 'err');
+    });
+  });
+
+  state.peer.on('error', (err) => {
+    if (err.type === 'peer-unavailable') {
+      setJoinStatus('Room nicht gefunden. Code korrekt?', 'err');
+    } else {
+      setJoinStatus('Verbindungsfehler: ' + err.type, 'err');
+    }
+  });
+}
+
+function setJoinStatus(msg, type) {
+  const el = document.getElementById('join-status');
+  el.textContent = msg;
+  el.className = type === 'ok' ? 'status-ok' : type === 'err' ? 'status-err' : '';
+}
+
+function handleHostMessage(data) {
+  switch (data.type) {
+    case 'question':
+      showPlayerQuestion(data);
+      break;
+    case 'result':
+      showPlayerResult(data);
+      break;
+    case 'reveal':
+      showPlayerReveal(data);
+      break;
+    case 'victory':
+      showScreen('victory');
+      document.getElementById('victory-stats').textContent = 'Gemeinsam geschafft!';
+      spawnConfetti();
+      break;
+    case 'defeat':
+      showScreen('defeat');
+      document.getElementById('defeat-stats').textContent = 'Beim n\u00e4chsten Mal!';
+      break;
+    case 'summary':
+      // Player just sees a "done" message
+      break;
+  }
+}
+
+function showPlayerQuestion(data) {
+  showScreen('player-game');
+  state.playerAnswered = false;
+
+  // Student screen should only show options, not the question/SVG
+  document.getElementById('player-question').innerHTML = 'Schau auf den Beamer!';
+  document.getElementById('player-svg').innerHTML = '';
+  document.getElementById('player-feedback').textContent = '';
+  document.getElementById('player-feedback').className = 'player-feedback';
+  document.getElementById('player-waiting').textContent = '';
+
+  const container = document.getElementById('player-options');
+  container.innerHTML = '';
+  data.options.forEach((opt, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'answer-btn';
+    btn.innerHTML = '<span class="letter">' + LETTERS[i] + '</span><span>' + opt + '</span>';
+    btn.addEventListener('click', () => submitAnswer(i, data.index));
+    container.appendChild(btn);
+  });
+}
+
+function submitAnswer(answerIndex, questionIndex) {
+  if (state.playerAnswered) return;
+  state.playerAnswered = true;
+
+  // Highlight selected
+  const btns = document.querySelectorAll('#player-options .answer-btn');
+  btns.forEach((b, i) => {
+    b.disabled = true;
+    if (i === answerIndex) b.classList.add('selected');
+  });
+
+  document.getElementById('player-waiting').textContent = 'Antwort gesendet...';
+
+  if (state.hostConn) {
+    try {
+      state.hostConn.send({ type: 'answer', answer: answerIndex, index: questionIndex });
+    } catch (e) {}
+  }
+}
+
+function showPlayerResult(data) {
+  const fb = document.getElementById('player-feedback');
+  if (data.correct) {
+    fb.textContent = '\u2705 Richtig!';
+    fb.className = 'player-feedback correct-fb';
+  } else {
+    fb.textContent = '\u274c Falsch!';
+    fb.className = 'player-feedback wrong-fb';
+  }
+  document.getElementById('player-waiting').textContent = 'Warte auf n\u00e4chste Frage...';
+}
+
+function showPlayerReveal(data) {
+  const btns = document.querySelectorAll('#player-options .answer-btn');
+  btns.forEach((b, i) => {
+    if (i === data.correct) {
+      b.classList.add('correct-answer');
+    } else if (b.classList.contains('selected') && i !== data.correct) {
+      b.classList.add('wrong-answer');
+    }
+  });
+  document.getElementById('player-waiting').innerHTML = data.explanation;
+}
+
+// ===================== UTILS =====================
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+// ===================== EVENT BINDINGS =====================
+function bindEvents() {
+  document.getElementById('btn-start').addEventListener('click', startGame);
+  document.getElementById('btn-join').addEventListener('click', joinGame);
+  document.getElementById('btn-next').addEventListener('click', nextQuestion);
+  document.getElementById('btn-reveal').addEventListener('click', revealAnswer);
+  document.getElementById('btn-summary').addEventListener('click', showSummary);
+  document.getElementById('btn-summary-defeat').addEventListener('click', showSummary);
+  document.getElementById('btn-manual-correct').addEventListener('click', manualCorrect);
+  document.getElementById('btn-manual-wrong').addEventListener('click', manualWrong);
+
+  document.getElementById('btn-manual').addEventListener('click', () => {
+    state.isManual = true;
+    document.getElementById('btn-start').disabled = false;
+    document.getElementById('btn-manual').textContent = '\u2705 Manueller Modus aktiv';
+    document.getElementById('btn-manual').disabled = true;
+  });
+
+  // Enter key for join
+  document.getElementById('code-input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') joinGame();
+  });
+  document.getElementById('name-input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') document.getElementById('code-input').focus();
+  });
+}
+
+// ===================== START =====================
+init();
+</script>
+</body>
+</html>
