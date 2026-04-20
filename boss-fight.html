@@ -116,18 +116,22 @@ input{font-family:inherit}
 .confetti{position:absolute;width:10px;height:10px;top:-20px;animation:confetti-fall linear forwards}
 
 /* --- Summary --- */
-#summary{gap:.8rem;overflow-y:auto;padding:1.5rem;justify-content:flex-start;padding-top:2rem;align-items:stretch}
-#summary h2{font-size:1.5rem;color:var(--gold);text-align:center}
-#summary-list{display:grid;grid-template-columns:1fr 1fr;gap:.8rem;width:100%;max-width:1200px;margin:0 auto}
-.summary-item{background:var(--bg2);border-radius:12px;padding:1rem 1.2rem;display:flex;flex-direction:column;gap:.4rem;justify-content:space-between}
+#summary{gap:.4rem;overflow:hidden;padding:.8rem;justify-content:flex-start;padding-top:.8rem;align-items:stretch}
+#summary h2{font-size:1.1rem;color:var(--gold);text-align:center}
+#summary-list{display:grid;grid-template-columns:repeat(3,1fr);gap:.4rem;width:100%;max-width:1200px;margin:0 auto}
+.summary-item{background:var(--bg2);border-radius:10px;padding:.4rem .6rem;display:flex;flex-direction:column;gap:.15rem;justify-content:space-between;cursor:pointer;border:1px solid transparent;transition:border-color .15s}
+.summary-item:hover{border-color:var(--gold)}
 .summary-item-top{display:flex;justify-content:space-between;align-items:flex-start;gap:.5rem}
-.summary-item .q-text{font-size:.95rem;flex:1;line-height:1.5}
-.summary-item .accuracy{font-weight:700;font-size:1.2rem;min-width:3.5rem;text-align:right;flex-shrink:0}
-.summary-item .correct-answer-hint{font-size:.8rem;color:var(--heal);margin-top:.2rem}
+.summary-item .q-text{font-size:.75rem;flex:1;line-height:1.4}
+.summary-item .accuracy{font-weight:700;font-size:.95rem;min-width:3rem;text-align:right;flex-shrink:0}
+.summary-item .correct-answer-hint{font-size:.65rem;color:var(--heal);margin-top:.1rem}
 .accuracy.good{color:var(--heal)}
 .accuracy.mid{color:var(--gold)}
 .accuracy.bad{color:var(--accent)}
-@media(max-width:600px){#summary-list{grid-template-columns:1fr}}
+@media(max-width:600px){#summary-list{grid-template-columns:repeat(2,1fr)}}
+/* Detail overlay */
+.detail-overlay{display:none;position:fixed;inset:0;z-index:50;background:var(--bg);flex-direction:column;align-items:center;padding:1.5rem;gap:.8rem;overflow-y:auto}
+.detail-overlay.active{display:flex}
 
 /* --- Defeat --- */
 #defeat{gap:1rem}
@@ -266,6 +270,14 @@ input{font-family:inherit}
 <!-- Confetti container -->
 <div class="confetti-container" id="confetti-container"></div>
 
+<!-- Detail overlay -->
+<div id="detail-overlay" class="detail-overlay">
+  <button class="btn btn-secondary" id="btn-detail-close" style="align-self:flex-start">&#8592; Zur&uuml;ck zur Analyse</button>
+  <div class="question-text" id="detail-question"></div>
+  <div class="svg-container" id="detail-svg"></div>
+  <div class="options-grid" id="detail-options" style="width:min(95%,700px)"></div>
+</div>
+
 <script>
 // ===================== QUESTIONS =====================
 const questions = [
@@ -288,7 +300,7 @@ const questions = [
     options: ['4', '6', '8', '12'],
     correct: 1,
     explanation: '<span class="seg">ZA</span> / <span class="seg">AA\'</span> = <span class="seg">ZB</span> / <span class="seg">BB\'</span> \u2192 4/8 = 3/x \u2192 x = 6',
-    svg: '<svg viewBox="0 0 240 130" width="100%" style="max-width:280px;height:auto"><line x1="20" y1="20" x2="220" y2="40" stroke="#aaa" stroke-width="2"/><line x1="20" y1="20" x2="220" y2="110" stroke="#aaa" stroke-width="2"/><line x1="80" y1="26" x2="80" y2="47" stroke="#aaa" stroke-width="2" stroke-dasharray="4 3"/><line x1="180" y1="36" x2="180" y2="92" stroke="#aaa" stroke-width="2" stroke-dasharray="4 3"/><circle cx="20" cy="20" r="3" fill="#f0c040"/><text x="10" y="15" fill="#eee" font-size="11">Z</text><text x="75" y="18" fill="#eee" font-size="11">A</text><text x="175" y="28" fill="#eee" font-size="11">A\'</text><text x="75" y="62" fill="#eee" font-size="11">B</text><text x="175" y="107" fill="#eee" font-size="11">B\'</text><text x="45" y="18" fill="#f0c040" font-size="10">4</text><text x="45" y="50" fill="#f0c040" font-size="10">3</text><text x="120" y="25" fill="#f0c040" font-size="10">8</text></svg>'
+    svg: '<svg viewBox="0 0 240 130" width="100%" style="max-width:280px;height:auto"><line x1="220" y1="20" x2="20" y2="40" stroke="#aaa" stroke-width="2"/><line x1="220" y1="20" x2="20" y2="110" stroke="#aaa" stroke-width="2"/><line x1="160" y1="26" x2="160" y2="47" stroke="#aaa" stroke-width="2" stroke-dasharray="4 3"/><line x1="60" y1="36" x2="60" y2="92" stroke="#aaa" stroke-width="2" stroke-dasharray="4 3"/><circle cx="220" cy="20" r="3" fill="#f0c040"/><text x="223" y="17" fill="#eee" font-size="11">Z</text><text x="151" y="20" fill="#eee" font-size="11">A</text><text x="49" y="30" fill="#eee" font-size="11">A\'</text><text x="151" y="58" fill="#eee" font-size="11">B</text><text x="49" y="104" fill="#eee" font-size="11">B\'</text><text x="186" y="18" fill="#f0c040" font-size="10">4</text><text x="186" y="40" fill="#f0c040" font-size="10">3</text><text x="100" y="26" fill="#f0c040" font-size="10">8</text></svg>'
   },
   {
     question: 'Welche Bedingung muss gelten, damit man die Strahlens\u00e4tze anwenden darf?',
@@ -315,14 +327,14 @@ const questions = [
     question: 'Lochkamera: Das Motiv ist 300 cm vom Loch entfernt und 20 cm gro\u00df. Der Film ist 15 cm hinter dem Loch. Wie gro\u00df ist das Bild auf dem Film?',
     options: ['1 cm', '2 cm', '3 cm', '4 cm'],
     correct: 0,
-    explanation: '2. Strahlensatz: <span class="seg">AB</span> / <span class="seg">A\'B\'</span> = <span class="seg">ZA</span> / <span class="seg">ZA\'</span> \u2192 20 / x = 300 / 15 \u2192 x = 1 cm.',
-    svg: '<svg viewBox="0 0 300 130" width="100%" style="max-width:300px;height:auto"><rect x="130" y="10" width="8" height="48" fill="#444" stroke="#aaa" stroke-width="1"/><rect x="130" y="72" width="8" height="48" fill="#444" stroke="#aaa" stroke-width="1"/><circle cx="134" cy="65" r="4" fill="#111" stroke="#fff" stroke-width="1"/><text x="139" y="62" fill="#eee" font-size="10">Z</text><line x1="25" y1="20" x2="25" y2="110" stroke="#eee" stroke-width="3"/><text x="8" y="24" fill="#eee" font-size="11">A</text><text x="8" y="118" fill="#eee" font-size="11">B</text><line x1="25" y1="20" x2="134" y2="65" stroke="#aaa" stroke-width="1.5"/><line x1="25" y1="110" x2="134" y2="65" stroke="#aaa" stroke-width="1.5"/><line x1="134" y1="65" x2="255" y2="115" stroke="#f0c040" stroke-dasharray="4 2" stroke-width="1.5"/><line x1="134" y1="65" x2="255" y2="15" stroke="#f0c040" stroke-dasharray="4 2" stroke-width="1.5"/><line x1="255" y1="15" x2="255" y2="115" stroke="#f0c040" stroke-width="3"/><text x="259" y="19" fill="#f0c040" font-size="11">B\'</text><text x="259" y="120" fill="#f0c040" font-size="11">A\'</text><text x="4" y="14" fill="#eee" font-size="9">AB=20cm</text><text x="50" y="122" fill="#aaa" font-size="9">ZA = 300 cm</text><text x="158" y="56" fill="#f0c040" font-size="9">ZA\' = 15 cm</text><text x="261" y="70" fill="#f0c040" font-size="11">?</text></svg>'
+    explanation: '2. Strahlensatz: <span class="seg">AB</span> / <span class="seg">A\'B\'</span> = x / y \u2192 20 / A\'B\' = 300 / 15 \u2192 A\'B\' = 1 cm.',
+    svg: '<svg viewBox="0 0 300 160" width="100%" style="max-width:300px;height:auto"><rect x="130" y="10" width="8" height="45" fill="#444" stroke="#aaa" stroke-width="1"/><rect x="130" y="75" width="8" height="45" fill="#444" stroke="#aaa" stroke-width="1"/><circle cx="134" cy="62" r="4" fill="#111" stroke="#fff" stroke-width="1"/><text x="139" y="59" fill="#eee" font-size="10">Z</text><line x1="25" y1="22" x2="25" y2="102" stroke="#eee" stroke-width="3"/><text x="8" y="26" fill="#eee" font-size="11">A</text><text x="8" y="110" fill="#eee" font-size="11">B</text><line x1="25" y1="22" x2="134" y2="62" stroke="#aaa" stroke-width="1.5"/><line x1="25" y1="102" x2="134" y2="62" stroke="#aaa" stroke-width="1.5"/><line x1="134" y1="62" x2="255" y2="102" stroke="#f0c040" stroke-dasharray="4 2" stroke-width="1.5"/><line x1="134" y1="62" x2="255" y2="22" stroke="#f0c040" stroke-dasharray="4 2" stroke-width="1.5"/><line x1="255" y1="22" x2="255" y2="102" stroke="#f0c040" stroke-width="3"/><text x="259" y="20" fill="#f0c040" font-size="11">B\'</text><text x="259" y="110" fill="#f0c040" font-size="11">A\'</text><text x="261" y="65" fill="#f0c040" font-size="11">?</text><text x="2" y="14" fill="#eee" font-size="9">AB=20cm</text><line x1="25" y1="120" x2="134" y2="120" stroke="#aaa" stroke-width="1.5"/><line x1="25" y1="115" x2="25" y2="125" stroke="#aaa" stroke-width="1.5"/><line x1="134" y1="115" x2="134" y2="125" stroke="#aaa" stroke-width="1.5"/><text x="79" y="137" fill="#aaa" font-size="9" text-anchor="middle">x = 300 cm</text><line x1="134" y1="120" x2="255" y2="120" stroke="#f0c040" stroke-width="1.5"/><line x1="255" y1="115" x2="255" y2="125" stroke="#f0c040" stroke-width="1.5"/><text x="194" y="137" fill="#f0c040" font-size="9" text-anchor="middle">y = 15 cm</text></svg>'
   },
   {
     question: 'V-Figur mit Zentrum Z.<br>Welche Gleichung ist korrekt?',
-    options: ['<span class="seg">ZA</span> / <span class="seg">ZA\'</span> = <span class="seg">ZB\'</span> / <span class="seg">ZB</span>', '<span class="seg">ZA</span> / <span class="seg">ZA\'</span> = <span class="seg">ZB</span> / <span class="seg">ZB\'</span>', '<span class="seg">AA\'</span> / <span class="seg">ZA</span> = <span class="seg">BB\'</span> / <span class="seg">ZB</span>', '<span class="seg">AB</span> / <span class="seg">ZA\'</span> = <span class="seg">A\'B\'</span> / <span class="seg">ZA</span>'],
-    correct: 1,
-    explanation: '1. Strahlensatz: <span class="seg">ZA</span> / <span class="seg">ZA\'</span> = <span class="seg">ZB</span> / <span class="seg">ZB\'</span> (Strecken auf demselben Strahl).',
+    options: ['<span class="seg">ZA</span> / <span class="seg">ZA\'</span> = <span class="seg">ZB\'</span> / <span class="seg">ZB</span>', '<span class="seg">ZA\'</span> / <span class="seg">ZA</span> = <span class="seg">ZB</span> / <span class="seg">ZB\'</span>', '<span class="seg">AA\'</span> / <span class="seg">ZA</span> = <span class="seg">BB\'</span> / <span class="seg">ZB</span>', '<span class="seg">AB</span> / <span class="seg">ZA\'</span> = <span class="seg">A\'B\'</span> / <span class="seg">ZA</span>'],
+    correct: 2,
+    explanation: 'Aus dem 1. Strahlensatz folgt: <span class="seg">AA\'</span> / <span class="seg">ZA</span> = <span class="seg">BB\'</span> / <span class="seg">ZB</span>.',
     svg: '<svg viewBox="0 0 240 130" width="100%" style="max-width:280px;height:auto"><line x1="20" y1="20" x2="220" y2="40" stroke="#aaa" stroke-width="2"/><line x1="20" y1="20" x2="220" y2="110" stroke="#aaa" stroke-width="2"/><line x1="80" y1="26" x2="80" y2="47" stroke="#aaa" stroke-width="2"/><line x1="180" y1="36" x2="180" y2="92" stroke="#aaa" stroke-width="2"/><circle cx="20" cy="20" r="3" fill="#f0c040"/><text x="10" y="15" fill="#eee" font-size="11">Z</text><text x="75" y="18" fill="#eee" font-size="11">A</text><text x="175" y="28" fill="#eee" font-size="11">A\'</text><text x="75" y="62" fill="#eee" font-size="11">B</text><text x="175" y="107" fill="#eee" font-size="11">B\'</text></svg>'
   },
   {
@@ -337,7 +349,7 @@ const questions = [
     options: ['7', '7,5', '8', '9'],
     correct: 1,
     explanation: '2. SS: <span class="seg">AB</span> / <span class="seg">A\'B\'</span> = <span class="seg">ZA</span> / <span class="seg">ZA\'</span> \u2192 5/x = 4/6 \u2192 x = 7,5',
-    svg: '<svg viewBox="0 0 240 130" width="100%" style="max-width:280px;height:auto"><line x1="20" y1="20" x2="220" y2="40" stroke="#aaa" stroke-width="2"/><line x1="20" y1="20" x2="220" y2="110" stroke="#aaa" stroke-width="2"/><line x1="100" y1="28" x2="100" y2="58" stroke="#f0c040" stroke-width="2"/><line x1="180" y1="36" x2="180" y2="92" stroke="#f0c040" stroke-width="2"/><circle cx="20" cy="20" r="3" fill="#f0c040"/><text x="10" y="15" fill="#eee" font-size="11">Z</text><text x="95" y="18" fill="#eee" font-size="11">A</text><text x="175" y="28" fill="#eee" font-size="11">A\'</text><text x="105" y="65" fill="#eee" font-size="11">B</text><text x="185" y="105" fill="#eee" font-size="11">B\'</text><text x="90" y="50" fill="#eee" font-size="11">5</text><text x="185" y="70" fill="#eee" font-size="11">?</text><text x="45" y="15" fill="#f0c040" font-size="10">4</text><text x="120" y="25" fill="#f0c040" font-size="10">6</text></svg>'
+    svg: '<svg viewBox="0 0 240 130" width="100%" style="max-width:280px;height:auto"><line x1="220" y1="20" x2="20" y2="40" stroke="#aaa" stroke-width="2"/><line x1="220" y1="20" x2="20" y2="110" stroke="#aaa" stroke-width="2"/><line x1="130" y1="29" x2="130" y2="61" stroke="#f0c040" stroke-width="2"/><line x1="60" y1="36" x2="60" y2="92" stroke="#f0c040" stroke-width="2"/><circle cx="220" cy="20" r="3" fill="#f0c040"/><text x="223" y="17" fill="#eee" font-size="11">Z</text><text x="133" y="24" fill="#eee" font-size="11">A</text><text x="48" y="30" fill="#eee" font-size="11">A\'</text><text x="133" y="72" fill="#eee" font-size="11">B</text><text x="48" y="104" fill="#eee" font-size="11">B\'</text><text x="118" y="50" fill="#eee" font-size="11">5</text><text x="46" y="68" fill="#eee" font-size="11">?</text><text x="182" y="18" fill="#f0c040" font-size="10">4</text><text x="118" y="17" fill="#f0c040" font-size="10">6</text></svg>'
   },
   {
     question: 'X-Figur: <span class="seg">ZA</span> = 3, <span class="seg">ZA\'</span> = 5, <span class="seg">ZB</span> = 9.<br>Wie lang ist <span class="seg">ZB\'</span>?',
@@ -356,7 +368,7 @@ const questions = [
 ];
 
 const LETTERS = ['A', 'B', 'C', 'D'];
-const TIMER_SECONDS = 90;
+const TIMER_SECONDS = 60;
 
 // ===================== STATE =====================
 const state = {
@@ -632,11 +644,6 @@ function revealAnswer() {
   const correctEl = document.getElementById('host-opt-' + q.correct);
   if (correctEl) correctEl.classList.add('correct');
 
-  // Show explanation
-  const explBox = document.getElementById('host-explanation');
-  explBox.innerHTML = q.explanation;
-  explBox.style.display = 'block';
-
   document.getElementById('btn-reveal').style.display = 'none';
   document.getElementById('btn-next').style.display = 'inline-flex';
 
@@ -761,6 +768,7 @@ function showSummary() {
         '<span class="accuracy ' + accClass + '">' + acc + '%</span>' +
       '</div>' +
       '<div class="correct-answer-hint">&#10003; ' + q.options[q.correct] + '</div>';
+    div.addEventListener('click', () => showQuestionDetail(q));
     list.appendChild(div);
   });
 
@@ -936,7 +944,7 @@ function showPlayerReveal(data) {
       b.classList.add('wrong-answer');
     }
   });
-  document.getElementById('player-waiting').innerHTML = data.explanation;
+  document.getElementById('player-waiting').textContent = 'Warte auf n\u00e4chste Frage...';
 }
 
 // ===================== UTILS =====================
@@ -954,6 +962,7 @@ function bindEvents() {
   document.getElementById('btn-reveal').addEventListener('click', revealAnswer);
   document.getElementById('btn-summary').addEventListener('click', showSummary);
   document.getElementById('btn-summary-defeat').addEventListener('click', showSummary);
+  document.getElementById('btn-detail-close').addEventListener('click', closeDetailOverlay);
   document.getElementById('btn-manual-correct').addEventListener('click', manualCorrect);
   document.getElementById('btn-manual-wrong').addEventListener('click', manualWrong);
 
@@ -971,6 +980,25 @@ function bindEvents() {
   document.getElementById('name-input').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') document.getElementById('code-input').focus();
   });
+}
+
+// ===================== DETAIL OVERLAY =====================
+function showQuestionDetail(q) {
+  document.getElementById('detail-question').innerHTML = q.question;
+  document.getElementById('detail-svg').innerHTML = q.svg || '';
+  const grid = document.getElementById('detail-options');
+  grid.innerHTML = '';
+  q.options.forEach((opt, i) => {
+    const div = document.createElement('div');
+    div.className = 'option-card' + (i === q.correct ? ' correct' : '');
+    div.innerHTML = '<span class="letter">' + LETTERS[i] + '</span><span>' + opt + '</span>';
+    grid.appendChild(div);
+  });
+  document.getElementById('detail-overlay').classList.add('active');
+}
+
+function closeDetailOverlay() {
+  document.getElementById('detail-overlay').classList.remove('active');
 }
 
 // ===================== START =====================
