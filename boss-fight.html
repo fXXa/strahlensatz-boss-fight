@@ -5,14 +5,21 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>Strahlensatz Boss-Fight</title>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=Rubik:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
-  --bg:#1a1a2e;--bg2:#16213e;--accent:#e94560;--heal:#4ecca3;
-  --text:#eee;--boss:#7b2d8e;--gold:#f0c040;--dim:#888;
+  --bg:oklch(13% 0.018 55);--bg2:oklch(17% 0.022 55);
+  --accent:oklch(58% 0.21 30);--heal:oklch(66% 0.14 162);
+  --text:oklch(90% 0.012 55);--gold:oklch(78% 0.17 78);--dim:oklch(52% 0.012 55);
+  --surface:oklch(21% 0.016 55);--border:oklch(30% 0.013 55);
+  --display-font:'Chakra Petch',system-ui,sans-serif;
 }
-html,body{height:100%;overflow:hidden;font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text)}
+html,body{height:100%;overflow:hidden;font-family:'Rubik',system-ui,sans-serif;background:var(--bg);color:var(--text)}
 button{font-family:inherit;cursor:pointer;border:none;outline:none;-webkit-tap-highlight-color:transparent}
+button:focus-visible{outline:2px solid var(--gold);outline-offset:3px;border-radius:6px}
 input{font-family:inherit}
 
 /* --- Screens --- */
@@ -21,20 +28,21 @@ input{font-family:inherit}
 
 /* --- Lobby --- */
 #lobby{gap:1.5rem;text-align:center}
-#lobby h1{font-size:clamp(1.6rem,5vw,3rem);color:var(--gold)}
+#lobby h1{font-size:clamp(1.6rem,5vw,3rem);color:var(--gold);font-family:var(--display-font);font-weight:700;letter-spacing:.04em}
 #lobby .subtitle{color:var(--dim);font-size:1rem}
-.room-display{background:var(--bg2);border:3px solid var(--gold);border-radius:16px;padding:1.5rem 2.5rem;font-size:clamp(2.5rem,8vw,5rem);font-weight:900;letter-spacing:.3em;color:var(--gold);text-shadow:0 0 20px rgba(240,192,64,.4)}
+.room-display{background:var(--bg2);border:3px solid var(--gold);border-radius:16px;padding:1.5rem 2.5rem;font-size:clamp(2.5rem,8vw,5rem);font-weight:700;letter-spacing:.3em;color:var(--gold);font-family:var(--display-font)}
 .room-display small{display:block;font-size:.9rem;letter-spacing:normal;color:var(--dim);font-weight:400;margin-bottom:.5rem}
 #player-count{font-size:1.2rem;color:var(--heal)}
-.btn{padding:.8rem 2rem;border-radius:12px;font-size:1.1rem;font-weight:700;transition:transform .1s,box-shadow .15s}
+.btn{padding:.8rem 2rem;border-radius:12px;font-size:1.1rem;font-weight:700;transition:transform .1s,filter .15s}
+.btn:hover:not(:disabled){filter:brightness(1.12)}
 .btn:active{transform:scale(.95)}
-.btn-primary{background:var(--accent);color:#fff;box-shadow:0 4px 15px rgba(233,69,96,.4)}
+.btn-primary{background:var(--accent);color:#fff;box-shadow:0 4px 15px color-mix(in oklch,var(--accent) 40%,transparent)}
 .btn-secondary{background:var(--bg2);color:var(--text);border:2px solid var(--dim)}
-.btn-start{font-size:1.4rem;padding:1rem 3rem;background:var(--heal);color:#111;box-shadow:0 4px 20px rgba(78,204,163,.4)}
+.btn-start{font-size:1.4rem;padding:1rem 3rem;background:var(--heal);color:oklch(10% 0.02 55);box-shadow:0 4px 20px color-mix(in oklch,var(--heal) 40%,transparent)}
 #join-area{display:flex;flex-direction:column;gap:1rem;align-items:center}
 #join-area input{background:var(--bg2);border:2px solid var(--dim);border-radius:12px;padding:.8rem 1.2rem;font-size:1.5rem;color:var(--gold);text-align:center;letter-spacing:.25em;width:10rem}
 #join-area input:focus{border-color:var(--gold);outline:none}
-#join-area input::placeholder{color:#555;letter-spacing:normal;font-size:1rem}
+#join-area input::placeholder{color:var(--dim);letter-spacing:normal;font-size:1rem}
 #join-status{font-size:.9rem;min-height:1.2em}
 .status-ok{color:var(--heal)}
 .status-err{color:var(--accent)}
@@ -47,9 +55,9 @@ input{font-family:inherit}
 .boss-sprite{font-size:clamp(4rem,12vw,8rem);line-height:1;transition:filter .3s;position:relative}
 .boss-sprite.damaged{animation:shake .4s ease-in-out}
 .boss-sprite.healing{animation:glow-green .5s ease-in-out}
-.hp-bar-container{width:min(90%,700px);height:clamp(28px,4vw,48px);background:#333;border-radius:24px;overflow:hidden;border:3px solid #555;margin:.4rem 0;position:relative}
-.hp-bar{height:100%;border-radius:20px;transition:width .6s ease,background .6s;display:flex;align-items:center;justify-content:flex-end;padding-right:12px;font-weight:900;font-size:clamp(.8rem,2vw,1.2rem);color:#111;min-width:3rem}
-.hp-label{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-weight:900;font-size:clamp(.9rem,2.5vw,1.4rem);text-shadow:0 1px 3px rgba(0,0,0,.7);z-index:2;pointer-events:none}
+.hp-bar-container{width:min(90%,700px);height:clamp(28px,4vw,48px);background:var(--surface);border-radius:24px;overflow:hidden;border:3px solid var(--border);margin:.4rem 0;position:relative}
+.hp-bar{height:100%;width:100%;border-radius:20px;transition:transform .6s ease,background .6s;transform-origin:left;will-change:transform}
+.hp-label{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-family:var(--display-font);font-weight:700;font-size:clamp(.9rem,2.5vw,1.4rem);text-shadow:0 1px 3px rgba(0,0,0,.7);z-index:2;pointer-events:none}
 .damage-number{position:absolute;font-weight:900;font-size:1.4rem;pointer-events:none;z-index:10;animation:float-up 1s ease-out forwards}
 .damage-number.dmg{color:var(--accent)}
 .damage-number.heal-num{color:var(--heal)}
@@ -63,16 +71,16 @@ input{font-family:inherit}
 .svg-container{width:100%;display:flex;justify-content:center;margin:0.5rem 0}
 .question-text{font-size:clamp(1rem,3vw,1.6rem);text-align:center;padding:.6rem;line-height:1.5;max-width:800px}
 .options-grid{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;width:min(95%,700px);margin-top:.5rem}
-.option-card{background:var(--bg2);border:2px solid #444;border-radius:12px;padding:.7rem 1rem;font-size:clamp(.85rem,2.2vw,1.2rem);display:flex;align-items:center;gap:.6rem;transition:border-color .2s,background .2s}
-.option-card .letter{width:2rem;height:2rem;border-radius:50%;background:#333;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:.9rem;flex-shrink:0}
-.option-card.correct{border-color:var(--heal);background:rgba(78,204,163,.15)}
-.option-card.correct .letter{background:var(--heal);color:#111}
-.option-card.wrong{border-color:var(--accent);background:rgba(233,69,96,.1)}
-.explanation-box{margin-top:.5rem;padding:.5rem 1rem;background:rgba(78,204,163,.1);border-left:3px solid var(--heal);border-radius:0 8px 8px 0;font-size:clamp(.8rem,1.8vw,1rem);max-width:700px;text-align:left}
+.option-card{background:var(--bg2);border:2px solid var(--border);border-radius:12px;padding:.7rem 1rem;font-size:clamp(.85rem,2.2vw,1.2rem);display:flex;align-items:center;gap:.6rem;transition:border-color .2s,background .2s}
+.option-card .letter{width:2rem;height:2rem;border-radius:50%;background:var(--surface);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:.9rem;flex-shrink:0}
+.option-card.correct{border-color:var(--heal);background:color-mix(in oklch,var(--heal) 15%,transparent)}
+.option-card.correct .letter{background:var(--heal);color:oklch(10% 0.02 55)}
+.option-card.wrong{border-color:var(--accent);background:color-mix(in oklch,var(--accent) 10%,transparent)}
+.explanation-box{margin-top:.5rem;padding:.5rem 1rem;background:color-mix(in oklch,var(--heal) 10%,transparent);border:1px solid color-mix(in oklch,var(--heal) 35%,transparent);border-radius:8px;font-size:clamp(.8rem,1.8vw,1rem);max-width:700px;text-align:left}
 
 /* Timer */
-.timer-bar-container{width:min(95%,700px);height:6px;background:#333;border-radius:3px;margin-top:.4rem}
-.timer-bar{height:100%;border-radius:3px;transition:width .25s linear;background:var(--heal)}
+.timer-bar-container{width:min(95%,700px);height:6px;background:var(--surface);border-radius:3px;margin-top:.4rem}
+.timer-bar{height:100%;width:100%;border-radius:3px;transition:transform .25s linear;background:var(--heal);transform-origin:left;will-change:transform}
 .timer-bar.urgent{background:var(--accent)}
 
 /* Host controls */
@@ -93,14 +101,15 @@ input{font-family:inherit}
 #player-game{padding:1rem;gap:.8rem;justify-content:flex-start;padding-top:2rem}
 .player-question{font-size:clamp(1.1rem,4vw,1.5rem);text-align:center;line-height:1.5;padding:0 .5rem;flex-shrink:0}
 .player-options{display:flex;flex-direction:column;gap:.8rem;width:100%;max-width:400px;margin-top:1rem}
-.answer-btn{background:var(--bg2);border:3px solid #444;border-radius:16px;padding:1rem;font-size:clamp(1rem,3.5vw,1.3rem);color:var(--text);display:flex;align-items:center;gap:.8rem;transition:all .15s;min-height:3.5rem}
+.answer-btn{background:var(--bg2);border:3px solid var(--border);border-radius:16px;padding:1rem;font-size:clamp(1rem,3.5vw,1.3rem);color:var(--text);display:flex;align-items:center;gap:.8rem;transition:all .15s;min-height:3.5rem}
+.answer-btn:hover:not(:disabled){border-color:var(--gold);background:color-mix(in oklch,var(--gold) 5%,transparent)}
 .answer-btn:active{transform:scale(.97)}
-.answer-btn .letter{width:2.5rem;height:2.5rem;border-radius:50%;background:#333;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:1.1rem;flex-shrink:0}
-.answer-btn.selected{border-color:var(--gold);background:rgba(240,192,64,.1)}
-.answer-btn.correct-answer{border-color:var(--heal);background:rgba(78,204,163,.2)}
-.answer-btn.correct-answer .letter{background:var(--heal);color:#111}
-.answer-btn.wrong-answer{border-color:var(--accent);background:rgba(233,69,96,.15)}
-.answer-btn.wrong-answer .letter{background:var(--accent);color:#fff}
+.answer-btn .letter{width:2.5rem;height:2.5rem;border-radius:50%;background:var(--surface);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:1.1rem;flex-shrink:0}
+.answer-btn.selected{border-color:var(--gold);background:color-mix(in oklch,var(--gold) 10%,transparent)}
+.answer-btn.correct-answer{border-color:var(--heal);background:color-mix(in oklch,var(--heal) 20%,transparent)}
+.answer-btn.correct-answer .letter{background:var(--heal);color:oklch(10% 0.02 55)}
+.answer-btn.wrong-answer{border-color:var(--accent);background:color-mix(in oklch,var(--accent) 15%,transparent)}
+.answer-btn.wrong-answer .letter{background:var(--accent);color:oklch(95% 0.005 55)}
 .answer-btn:disabled{opacity:.6;pointer-events:none}
 
 .player-feedback{font-size:1.3rem;font-weight:700;text-align:center;min-height:2rem}
@@ -110,14 +119,14 @@ input{font-family:inherit}
 
 /* --- Victory --- */
 #victory{gap:1rem}
-#victory h1{font-size:clamp(2rem,7vw,4rem);color:var(--gold);text-shadow:0 0 30px rgba(240,192,64,.5)}
+#victory h1{font-size:clamp(2rem,7vw,4rem);color:var(--gold);font-family:var(--display-font);font-weight:700;letter-spacing:.06em}
 #victory .trophy{font-size:clamp(4rem,15vw,8rem)}
 .confetti-container{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:100;overflow:hidden}
 .confetti{position:absolute;width:10px;height:10px;top:-20px;animation:confetti-fall linear forwards}
 
 /* --- Summary --- */
 #summary{gap:.4rem;overflow:hidden;padding:.8rem;justify-content:flex-start;padding-top:.8rem;align-items:stretch}
-#summary h2{font-size:1.1rem;color:var(--gold);text-align:center}
+#summary h2{font-size:1.1rem;color:var(--gold);text-align:center;font-family:var(--display-font);font-weight:600;letter-spacing:.05em}
 #summary-list{display:grid;grid-template-columns:repeat(3,1fr);gap:.4rem;width:100%;max-width:1200px;margin:0 auto}
 .summary-item{background:var(--bg2);border-radius:10px;padding:.4rem .6rem;display:flex;flex-direction:column;gap:.15rem;justify-content:space-between;cursor:pointer;border:1px solid transparent;transition:border-color .15s}
 .summary-item:hover{border-color:var(--gold)}
@@ -135,7 +144,7 @@ input{font-family:inherit}
 
 /* --- Defeat --- */
 #defeat{gap:1rem}
-#defeat h1{font-size:clamp(1.5rem,5vw,2.5rem);color:var(--accent)}
+#defeat h1{font-size:clamp(1.5rem,5vw,2.5rem);color:var(--accent);font-family:var(--display-font);font-weight:700}
 #defeat .monster-wins{font-size:clamp(3rem,10vw,6rem)}
 
 /* --- Animations --- */
@@ -148,7 +157,7 @@ input{font-family:inherit}
 }
 @keyframes glow-green{
   0%,100%{filter:brightness(1)}
-  50%{filter:brightness(1.5) hue-rotate(-30deg)}
+  50%{filter:brightness(1.5) hue-rotate(50deg) saturate(1.6)}
 }
 @keyframes float-up{
   0%{opacity:1;transform:translateY(0)}
@@ -163,6 +172,9 @@ input{font-family:inherit}
   50%{transform:scale(1.05)}
 }
 .pulse{animation:pulse 1.5s infinite}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important}
+}
 </style>
 </head>
 <body>
@@ -199,10 +211,31 @@ input{font-family:inherit}
 <div id="host-game" class="screen">
   <div class="room-mini" id="room-mini"></div>
   <div class="boss-area">
-    <div class="boss-sprite" id="boss-sprite">👾</div>
+    <div class="boss-sprite" id="boss-sprite"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="1em" height="1em" style="display:block;overflow:visible" aria-hidden="true">
+      <g stroke="var(--gold)" stroke-width="1.8" opacity="0.6" stroke-linecap="round">
+        <line x1="50" y1="12" x2="8" y2="60"/>
+        <line x1="50" y1="12" x2="22" y2="88"/>
+        <line x1="50" y1="12" x2="50" y2="95"/>
+        <line x1="50" y1="12" x2="78" y2="88"/>
+        <line x1="50" y1="12" x2="92" y2="60"/>
+      </g>
+      <line x1="14" y1="38" x2="86" y2="38" stroke="var(--heal)" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.85"/>
+      <line x1="5" y1="63" x2="95" y2="63" stroke="var(--heal)" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.85"/>
+      <polygon points="14,38 86,38 95,63 5,63" fill="oklch(20% 0.04 55)" stroke="var(--gold)" stroke-width="2"/>
+      <circle cx="50" cy="12" r="5" fill="var(--gold)"/>
+      <circle cx="33" cy="50" r="7" fill="var(--accent)"/>
+      <circle cx="67" cy="50" r="7" fill="var(--accent)"/>
+      <circle cx="35" cy="51" r="3.5" fill="oklch(8% 0.01 55)"/>
+      <circle cx="69" cy="51" r="3.5" fill="oklch(8% 0.01 55)"/>
+      <line x1="24" y1="42" x2="40" y2="46" stroke="var(--gold)" stroke-width="2.5" stroke-linecap="round"/>
+      <line x1="76" y1="42" x2="60" y2="46" stroke="var(--gold)" stroke-width="2.5" stroke-linecap="round"/>
+      <path d="M36 60 Q50 68 64 60" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"/>
+      <polygon points="20,63 34,63 32,82 18,80" fill="oklch(20% 0.04 55)" stroke="var(--gold)" stroke-width="1.5"/>
+      <polygon points="66,63 80,63 82,80 68,82" fill="oklch(20% 0.04 55)" stroke="var(--gold)" stroke-width="1.5"/>
+    </svg></div>
     <div class="hp-bar-container">
       <div class="hp-label" id="hp-label">100 / 100</div>
-      <div class="hp-bar" id="hp-bar" style="width:100%;background:var(--heal)"></div>
+      <div class="hp-bar" id="hp-bar" style="background:var(--heal)"></div>
     </div>
     <div class="round-info">
       <span>📋 Frage <strong id="round-num">1</strong>/12</span>
@@ -216,7 +249,7 @@ input{font-family:inherit}
     <div class="options-grid" id="host-options"></div>
     <div class="explanation-box" id="host-explanation" style="display:none"></div>
     <div class="timer-bar-container" id="timer-container">
-      <div class="timer-bar" id="timer-bar" style="width:100%"></div>
+      <div class="timer-bar" id="timer-bar"></div>
     </div>
   </div>
   <div class="host-controls" id="host-controls">
@@ -227,7 +260,7 @@ input{font-family:inherit}
   <div class="manual-bar" id="manual-bar">
     <span style="color:var(--dim);font-size:.85rem">Manuell:</span>
     <div class="manual-result-btns">
-      <button class="btn" style="background:var(--heal);color:#111" id="btn-manual-correct">✅ Richtig</button>
+      <button class="btn" style="background:var(--heal);color:oklch(10% 0.02 55)" id="btn-manual-correct">✅ Richtig</button>
       <button class="btn" style="background:var(--accent);color:#fff" id="btn-manual-wrong">❌ Falsch</button>
     </div>
   </div>
@@ -244,7 +277,14 @@ input{font-family:inherit}
 
 <!-- ====== VICTORY ====== -->
 <div id="victory" class="screen">
-  <div class="trophy">🏆</div>
+  <div class="trophy"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="1em" height="1em" style="display:block;overflow:visible" aria-hidden="true">
+    <path d="M28 15 L72 15 L66 52 Q50 64 34 52 Z" fill="oklch(20% 0.04 55)" stroke="var(--gold)" stroke-width="2.5"/>
+    <path d="M28 20 Q10 28 14 46 Q18 56 34 50" fill="none" stroke="var(--gold)" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="M72 20 Q90 28 86 46 Q82 56 66 50" fill="none" stroke="var(--gold)" stroke-width="2.5" stroke-linecap="round"/>
+    <line x1="50" y1="54" x2="50" y2="70" stroke="var(--gold)" stroke-width="3" stroke-linecap="round"/>
+    <rect x="34" y="70" width="32" height="7" rx="3.5" fill="oklch(20% 0.04 55)" stroke="var(--gold)" stroke-width="2"/>
+    <polygon points="50,21 53.5,31 64,31 55.5,37 58.5,47 50,41 41.5,47 44.5,37 36,31 46.5,31" fill="var(--gold)" opacity="0.95"/>
+  </svg></div>
   <h1>BOSS BESIEGT!</h1>
   <p style="font-size:1.2rem;color:var(--heal)">Das Mathemonster ist besiegt!</p>
   <p id="victory-stats" style="color:var(--dim)"></p>
@@ -253,7 +293,24 @@ input{font-family:inherit}
 
 <!-- ====== DEFEAT ====== -->
 <div id="defeat" class="screen">
-  <div class="monster-wins">👾</div>
+  <div class="monster-wins"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="1em" height="1em" style="display:block;overflow:visible" aria-hidden="true">
+    <g stroke="var(--gold)" stroke-width="1.8" opacity="0.6" stroke-linecap="round">
+      <line x1="50" y1="12" x2="8" y2="60"/><line x1="50" y1="12" x2="22" y2="88"/>
+      <line x1="50" y1="12" x2="50" y2="95"/><line x1="50" y1="12" x2="78" y2="88"/>
+      <line x1="50" y1="12" x2="92" y2="60"/>
+    </g>
+    <line x1="14" y1="38" x2="86" y2="38" stroke="var(--heal)" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.85"/>
+    <line x1="5" y1="63" x2="95" y2="63" stroke="var(--heal)" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.85"/>
+    <polygon points="14,38 86,38 95,63 5,63" fill="oklch(20% 0.04 55)" stroke="var(--gold)" stroke-width="2"/>
+    <circle cx="50" cy="12" r="5" fill="var(--gold)"/>
+    <circle cx="33" cy="50" r="7" fill="var(--accent)"/><circle cx="67" cy="50" r="7" fill="var(--accent)"/>
+    <circle cx="35" cy="51" r="3.5" fill="oklch(8% 0.01 55)"/><circle cx="69" cy="51" r="3.5" fill="oklch(8% 0.01 55)"/>
+    <line x1="24" y1="42" x2="40" y2="46" stroke="var(--gold)" stroke-width="2.5" stroke-linecap="round"/>
+    <line x1="76" y1="42" x2="60" y2="46" stroke="var(--gold)" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="M36 68 Q50 60 64 68" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linecap="round"/>
+    <polygon points="20,63 34,63 32,82 18,80" fill="oklch(20% 0.04 55)" stroke="var(--gold)" stroke-width="1.5"/>
+    <polygon points="66,63 80,63 82,80 68,82" fill="oklch(20% 0.04 55)" stroke="var(--gold)" stroke-width="1.5"/>
+  </svg></div>
   <h1>Knapp daneben!</h1>
   <p style="font-size:1.1rem;color:var(--dim)">Das Mathemonster hat überlebt — beim nächsten Mal!</p>
   <p id="defeat-stats" style="color:var(--dim)"></p>
@@ -321,7 +378,7 @@ const questions = [
     options: ['Stimmt', 'Falsch \u2013 <span class="seg">AA\'</span> und <span class="seg">ZA\'</span> liegen nicht auf demselben Strahl', 'Nur bei X-Figur g\u00fcltig', 'Falsch \u2013 richtig w\u00e4re: <span class="seg">ZA\'</span>/<span class="seg">AA\'</span> = <span class="seg">ZB\'</span>/<span class="seg">BB\'</span>'],
     correct: 0,
     explanation: 'Korrekt! <span class="seg">AA\'</span> / <span class="seg">ZA\'</span> = <span class="seg">BB\'</span> / <span class="seg">ZB\'</span> ist eine g\u00fcltige Umformung des 1. Strahlensatzes: <span class="seg">ZA</span> / <span class="seg">ZA\'</span> = <span class="seg">ZB</span> / <span class="seg">ZB\'</span>.',
-    svg: '<svg viewBox="0 0 240 130" width="100%" style="max-width:280px;height:auto"><line x1="20" y1="20" x2="220" y2="40" stroke="#aaa" stroke-width="2"/><line x1="20" y1="20" x2="220" y2="110" stroke="#aaa" stroke-width="2"/><line x1="80" y1="26" x2="80" y2="47" stroke="#e94560" stroke-width="3"/><line x1="180" y1="36" x2="180" y2="92" stroke="#e94560" stroke-width="3"/><circle cx="20" cy="20" r="3" fill="#f0c040"/><text x="10" y="15" fill="#eee" font-size="11">Z</text><text x="75" y="18" fill="#eee" font-size="11">A</text><text x="175" y="28" fill="#eee" font-size="11">A\'</text><text x="75" y="62" fill="#eee" font-size="11">B</text><text x="175" y="107" fill="#eee" font-size="11">B\'</text></svg>'
+    svg: '<svg viewBox="0 0 240 130" width="100%" style="max-width:280px;height:auto"><line x1="20" y1="20" x2="220" y2="40" stroke="#aaa" stroke-width="2"/><line x1="20" y1="20" x2="220" y2="110" stroke="#aaa" stroke-width="2"/><line x1="80" y1="26" x2="80" y2="47" stroke="#cc4418" stroke-width="3"/><line x1="180" y1="36" x2="180" y2="92" stroke="#cc4418" stroke-width="3"/><circle cx="20" cy="20" r="3" fill="#f0c040"/><text x="10" y="15" fill="#eee" font-size="11">Z</text><text x="75" y="18" fill="#eee" font-size="11">A</text><text x="175" y="28" fill="#eee" font-size="11">A\'</text><text x="75" y="62" fill="#eee" font-size="11">B</text><text x="175" y="107" fill="#eee" font-size="11">B\'</text></svg>'
   },
   {
     question: 'Lochkamera: Das Motiv ist 300 cm vom Loch entfernt und 20 cm gro\u00df. Der Film ist 15 cm hinter dem Loch. Wie gro\u00df ist das Bild auf dem Film?',
@@ -363,7 +420,7 @@ const questions = [
     options: ['15 m', '19,2 m', '16 m', '20 m'],
     correct: 1,
     explanation: '<span class="seg">AB</span> / <span class="seg">A\'B\'</span> = <span class="seg">ZA</span> / <span class="seg">ZA\'</span> \u2192 12 / x = 5 / 8 \u2192 x = 19,2 m',
-    svg: '<svg viewBox="0 0 300 155" width="100%" style="max-width:300px;height:auto"><rect x="0" y="50" width="300" height="70" fill="#16213e"/><line x1="0" y1="50" x2="300" y2="50" stroke="#4ecca3" stroke-width="2"/><line x1="0" y1="120" x2="300" y2="120" stroke="#4ecca3" stroke-width="2"/><circle cx="90" cy="50" r="3" fill="#eee"/><circle cx="210" cy="50" r="3" fill="#eee"/><text x="82" y="44" fill="#eee" font-size="11">A</text><text x="206" y="44" fill="#eee" font-size="11">B</text><circle cx="246" cy="120" r="3" fill="#eee"/><circle cx="54" cy="120" r="3" fill="#eee"/><text x="248" y="135" fill="#eee" font-size="11">A\'</text><text x="42" y="135" fill="#eee" font-size="11">B\'</text><line x1="90" y1="50" x2="246" y2="120" stroke="#aaa" stroke-width="1.5"/><line x1="210" y1="50" x2="54" y2="120" stroke="#aaa" stroke-width="1.5"/><circle cx="150" cy="77" r="4" fill="#f0c040"/><text x="154" y="74" fill="#f0c040" font-size="11">Z</text><line x1="90" y1="50" x2="210" y2="50" stroke="#eee" stroke-width="1.5" stroke-dasharray="5 3"/><line x1="54" y1="120" x2="246" y2="120" stroke="#eee" stroke-width="1.5" stroke-dasharray="5 3"/><text x="150" y="44" fill="#eee" font-size="10" text-anchor="middle">AB = 12 m</text><text x="150" y="143" fill="#f0c040" font-size="10" text-anchor="middle">A\'B\' = ?</text><text x="107" y="68" fill="#aaa" font-size="9">ZA = 5 m</text><text x="165" y="108" fill="#aaa" font-size="9">ZA\' = 8 m</text></svg>'
+    svg: '<svg viewBox="0 0 300 155" width="100%" style="max-width:300px;height:auto"><rect x="0" y="50" width="300" height="70" fill="#0d2418"/><line x1="0" y1="50" x2="300" y2="50" stroke="#3aaa7c" stroke-width="2"/><line x1="0" y1="120" x2="300" y2="120" stroke="#3aaa7c" stroke-width="2"/><circle cx="90" cy="50" r="3" fill="#eee"/><circle cx="210" cy="50" r="3" fill="#eee"/><text x="82" y="44" fill="#eee" font-size="11">A</text><text x="206" y="44" fill="#eee" font-size="11">B</text><circle cx="246" cy="120" r="3" fill="#eee"/><circle cx="54" cy="120" r="3" fill="#eee"/><text x="248" y="135" fill="#eee" font-size="11">A\'</text><text x="42" y="135" fill="#eee" font-size="11">B\'</text><line x1="90" y1="50" x2="246" y2="120" stroke="#aaa" stroke-width="1.5"/><line x1="210" y1="50" x2="54" y2="120" stroke="#aaa" stroke-width="1.5"/><circle cx="150" cy="77" r="4" fill="#f0c040"/><text x="154" y="74" fill="#f0c040" font-size="11">Z</text><line x1="90" y1="50" x2="210" y2="50" stroke="#eee" stroke-width="1.5" stroke-dasharray="5 3"/><line x1="54" y1="120" x2="246" y2="120" stroke="#eee" stroke-width="1.5" stroke-dasharray="5 3"/><text x="150" y="44" fill="#eee" font-size="10" text-anchor="middle">AB = 12 m</text><text x="150" y="143" fill="#f0c040" font-size="10" text-anchor="middle">A\'B\' = ?</text><text x="107" y="68" fill="#aaa" font-size="9">ZA = 5 m</text><text x="165" y="108" fill="#aaa" font-size="9">ZA\' = 8 m</text></svg>'
   }
 ];
 
@@ -611,14 +668,14 @@ function manualWrong() {
 function startTimer() {
   state.timeLeft = TIMER_SECONDS;
   const bar = document.getElementById('timer-bar');
-  bar.style.width = '100%';
+  bar.style.transform = 'scaleX(1)';
   bar.classList.remove('urgent');
 
   clearTimer();
   state.timerInterval = setInterval(() => {
     state.timeLeft -= 0.25;
-    const pct = Math.max(0, (state.timeLeft / TIMER_SECONDS) * 100);
-    bar.style.width = pct + '%';
+    const pct = Math.max(0, state.timeLeft / TIMER_SECONDS);
+    bar.style.transform = 'scaleX(' + pct + ')';
     if (state.timeLeft <= 8) bar.classList.add('urgent');
     if (state.timeLeft <= 0) {
       clearTimer();
@@ -703,13 +760,13 @@ function showDamageNumber(amount) {
 }
 
 function updateHP() {
-  const pct = Math.max(0, (state.bossHP / state.bossMaxHP) * 100);
+  const pct = Math.max(0, state.bossHP / state.bossMaxHP);
   const bar = document.getElementById('hp-bar');
   const label = document.getElementById('hp-label');
-  bar.style.width = pct + '%';
+  bar.style.transform = 'scaleX(' + pct + ')';
 
-  if (pct > 60) bar.style.background = 'var(--heal)';
-  else if (pct > 30) bar.style.background = 'var(--gold)';
+  if (pct > .6) bar.style.background = 'var(--heal)';
+  else if (pct > .3) bar.style.background = 'var(--gold)';
   else bar.style.background = 'var(--accent)';
 
   label.textContent = Math.ceil(state.bossHP) + ' / ' + state.bossMaxHP;
@@ -779,7 +836,7 @@ function showSummary() {
 
 function spawnConfetti() {
   const container = document.getElementById('confetti-container');
-  const colors = ['#e94560', '#4ecca3', '#f0c040', '#7b2d8e', '#00b4d8', '#ff6b6b', '#ffd93d'];
+  const colors = ['#cc4418', '#3aaa7c', '#b88a14', '#e86c20', '#e8dcc0', '#7a4010', '#d4820a'];
   for (let i = 0; i < 120; i++) {
     const el = document.createElement('div');
     el.className = 'confetti';
@@ -882,7 +939,6 @@ function showPlayerQuestion(data) {
   showScreen('player-game');
   state.playerAnswered = false;
 
-  // Final fix for student UI: Clear and show prompt
   const qEl = document.getElementById('player-question');
   const svgEl = document.getElementById('player-svg');
   if (qEl) qEl.innerHTML = 'Schau auf den Beamer!';
