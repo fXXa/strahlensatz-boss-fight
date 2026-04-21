@@ -172,6 +172,22 @@ input{font-family:inherit}
   50%{transform:scale(1.05)}
 }
 .pulse{animation:pulse 1.5s infinite}
+
+/* Adaptive difficulty toast */
+#adaptive-toast{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:200;pointer-events:none;text-align:center}
+#adaptive-toast .crit-label{font-family:var(--display-font);font-weight:700;font-size:clamp(2rem,6vw,3.5rem);color:var(--gold);text-shadow:0 0 30px color-mix(in oklch,var(--gold) 70%,transparent);display:block}
+#adaptive-toast .ineff-label{font-family:var(--display-font);font-weight:600;font-size:clamp(1rem,3vw,1.6rem);color:var(--dim);display:block}
+.damage-number.crit{color:var(--gold);font-size:2rem;text-shadow:0 0 8px color-mix(in oklch,var(--gold) 60%,transparent)}
+.damage-number.ineffective-dmg{color:var(--dim);font-size:1rem}
+@keyframes toast-pop{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(.7)}
+  15%{opacity:1;transform:translate(-50%,-50%) scale(1.15)}
+  30%{transform:translate(-50%,-50%) scale(1)}
+  80%{opacity:1;transform:translate(-50%,-50%) scale(1)}
+  100%{opacity:0;transform:translate(-50%,-50%) scale(.9)}
+}
+.toast-show{animation:toast-pop 1.8s ease-out forwards}
+
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important}
 }
@@ -327,6 +343,9 @@ input{font-family:inherit}
 <!-- Confetti container -->
 <div class="confetti-container" id="confetti-container"></div>
 
+<!-- Adaptive difficulty toast -->
+<div id="adaptive-toast" aria-live="assertive"></div>
+
 <!-- Detail overlay -->
 <div id="detail-overlay" class="detail-overlay">
   <button class="btn btn-secondary" id="btn-detail-close" style="align-self:flex-start">&#8592; Zur&uuml;ck zur Analyse</button>
@@ -447,7 +466,8 @@ const state = {
   wrongCount: 0,
   questionResults: [],
   playerAnswered: false,
-  roundRevealed: false
+  roundRevealed: false,
+  adaptiveBias: 'normal'
 };
 
 // ===================== INIT =====================
@@ -527,7 +547,7 @@ function startGame() {
   if (state.isManual) {
     state.bossMaxHP = 100;
   } else {
-    state.bossMaxHP = Math.max(80, n * 5);
+    state.bossMaxHP = Math.max(80, n * 7);
   }
   state.bossHP = state.bossMaxHP;
   state.currentQ = 0;
@@ -576,6 +596,13 @@ function showHostQuestion() {
   updatePlayersInfo();
   resetRoundState();
 
+  // Adaptive difficulty: kicks in after the halfway point
+  if (state.currentQ >= Math.floor(state.shuffledQ.length / 2)) {
+    calculateAdaptiveBias();
+  } else {
+    state.adaptiveBias = 'normal';
+  }
+
   if (!state.isManual) {
     startTimer();
   }
@@ -609,12 +636,23 @@ function handlePlayerMessage(conn, data) {
 
     if (isCorrect) {
       state.correctCount++;
-      state.bossHP = Math.max(0, state.bossHP - 1);
-      showDamageNumber(-1);
+      let damage = 1;
+      let hitType = 'normal';
+      if (state.adaptiveBias === 'critical' && Math.random() < 0.15) {
+        damage = 3;
+        hitType = 'crit';
+        showAdaptiveToast('critical');
+      } else if (state.adaptiveBias === 'ineffective' && Math.random() < 0.20) {
+        damage = 0.2;
+        hitType = 'ineffective';
+        showAdaptiveToast('ineffective');
+      }
+      state.bossHP = Math.max(0, state.bossHP - damage);
+      showDamageNumber(-damage, hitType);
     } else {
       state.wrongCount++;
       state.bossHP = Math.min(state.bossMaxHP, state.bossHP + 0.5);
-      showDamageNumber(0.5);
+      showDamageNumber(0.5, 'normal');
     }
 
     updateHP();
@@ -739,12 +777,17 @@ function nextQuestion() {
   broadcastQuestion();
 }
 
-function showDamageNumber(amount) {
+function showDamageNumber(amount, hitType = 'normal') {
   const sprite = document.getElementById('boss-sprite');
   const num = document.createElement('div');
-  num.className = 'damage-number ' + (amount < 0 ? 'dmg' : 'heal-num');
-  num.textContent = (amount < 0 ? '' : '+') + Math.abs(amount);
-  if (amount < 0) num.textContent = '-' + Math.abs(amount);
+  let cls = 'damage-number ';
+  if (amount < 0) {
+    cls += hitType === 'crit' ? 'crit' : hitType === 'ineffective' ? 'ineffective-dmg' : 'dmg';
+  } else {
+    cls += 'heal-num';
+  }
+  num.className = cls;
+  num.textContent = amount < 0 ? '-' + Math.abs(amount) : '+' + Math.abs(amount);
   num.style.left = (Math.random() * 60 + 20) + '%';
   sprite.parentElement.style.position = 'relative';
   sprite.parentElement.appendChild(num);
@@ -757,6 +800,32 @@ function showDamageNumber(amount) {
     sprite.classList.add('healing');
     setTimeout(() => sprite.classList.remove('healing'), 500);
   }
+}
+
+// ===================== ADAPTIVE DIFFICULTY =====================
+function calculateAdaptiveBias() {
+  const completedQ = state.questionResults.length;
+  if (completedQ === 0) { state.adaptiveBias = 'normal'; return; }
+  const totalQ = state.shuffledQ.length;
+  const remainingQ = totalQ - state.currentQ; // includes current Q
+  const avgNet = state.questionResults.reduce((s, r) => s + r.correct - r.wrong * 0.5, 0) / completedQ;
+  const projectedFinalHP = state.bossHP - avgNet * remainingQ;
+  if (projectedFinalHP > 5) state.adaptiveBias = 'critical';
+  else if (projectedFinalHP < -20) state.adaptiveBias = 'ineffective';
+  else state.adaptiveBias = 'normal';
+}
+
+function showAdaptiveToast(type) {
+  const el = document.getElementById('adaptive-toast');
+  el.classList.remove('toast-show');
+  void el.offsetWidth; // force reflow to restart animation
+  if (type === 'critical') {
+    el.innerHTML = '<span class="crit-label">⚡ CRITICAL HIT! ⚡</span>';
+  } else {
+    el.innerHTML = '<span class="ineff-label">...nicht sehr effektiv</span>';
+  }
+  el.classList.add('toast-show');
+  setTimeout(() => el.classList.remove('toast-show'), 1800);
 }
 
 function updateHP() {
